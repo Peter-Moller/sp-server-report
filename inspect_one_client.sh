@@ -7,9 +7,6 @@
 # The plan is to instead have the user provide either POLICYDOMAIN och a SCHEDULE and then
 # get the client list from those and produce result accoringly.
 
-# Get the secret password
-source /opt/monitoring/tsm_secrets.env 
-
 CLIENT=$1
 if [ -z "$CLIENT" ]; then
     echo "No client slected. Exiting..."
@@ -206,6 +203,17 @@ print_errors() {
         fi
     fi
 }
+
+
+#########################################################################################################################
+#######################################  S T A R T   O F   A C T U A L   W O R K  #######################################
+#########################################################################################################################
+
+# Find the location of the script
+ScriptNameLocation
+
+# Get the secret password
+source "$ScriptDirName"/tsm_secrets.env
 
 # See that the node exists
 check_node_exists
