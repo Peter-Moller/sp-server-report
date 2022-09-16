@@ -30,8 +30,8 @@ The following is presented about the history of the client for the given time pe
 
   * Number of files, bytes transferred and time elapsed for the latest backup  
 (based on `ANE4954I`, `ANE4961I` and `ANE4964I` respectively)
-  * Status of the backup: if it was successful (`ANR2507I`)
-  * Total number of files and Physical Space Occupied on the server (from `query occupancy CLIENTNAME`)
+  * Status of the backup: if it was successful (`ANR2507I`) or not. If no backup is found, the text “NO BACKUP FOUND” is presented. If the backup has concluded but no `ANR2507I` because of a `ANR2579E (return code 12)`, the text “Conflicted” is presented
+  * Total number of files and physical space occupied on the server (from `query occupancy`)
   * Version of the client software
   * Operating system on the client
   * Errors encoutered during the backup period
