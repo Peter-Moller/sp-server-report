@@ -7,9 +7,6 @@
 # The plan is to instead have the user provide either POLICYDOMAIN och a SCHEDULE and then
 # get the client list from those and produce result accoringly.
 
-# Get the secret password
-source /opt/monitoring/tsm3_secrets.env 
-
 CS_SERVERS="DOKUWIKI COURSEGIT FILEMAKER FORSETE LAGRING3 LGIT945 LMGM778 MONITOR MOODLE2020 PUCCINI ROBOTMIND1 TSM3 VILDE VM67 WEB2020"
 CS_CLIENTS="ALAN ALEXANDER ALEXANDRU ALFREDA ALMAOA ANDRZEJL ANDRZEJLDESK ANDYO ANNAA ANTONA AYESHAJ BIRGER BJORNIX BJORNR BJORNUX BORISM BRUCE CARINAA CHRISTELF CHRISTIN CHRISTOPHR DANIELH DRROBERTZ EBJARNASON ELINAT EMELIEE ERIKH FASEE FLAVIUSG GARETHC GORELH HAMPUSA HEIDIE IDRISS JACEKM JONASW KLANG KONSTANTINM LARSB LUIGI MAIKEK MARCUSK MARTINH MASOUMEH MATHIASH MATTHIAS MICHAELD MICHAELDIMAC MOMINAR NAZILA NIKLAS NORIC PATRIKP PENG PERA PERR PETERMAC PIERREN QUNYINGS REGNELL RIKARDO ROGERH ROYA RSSKNI SANDRAHP SERGIOR SIMONKL SUSANNA THOREH ULFA ULRIKA VOLKER"
 EIT_SERVERS=""
@@ -44,7 +41,7 @@ fi
 Today="$(date +%F)"
 Now=$(date +%s)      # Ex: Now=1662627432
 OutDirPrefix="/tmp/tsm/"
-OutDir="$OutDirPrefix${Dept,,}/$(echo "${SELECTION,,}" | sed -e 's/[a-z]*_//')"   # Ex: OutDir='/tmp/tsm/cs/servers'
+OutDir="$OutDirPrefix${Dept,,}/$(echo "${SELECTION,,}" | sed -e s/[a-z]*_//)"   # Ex: OutDir='/tmp/tsm/cs/servers'
 # Create the OutDir if it doesn't exist:
 if [ ! -d $OutDir ]; then
     mkdir -p $OutDir
@@ -73,9 +70,23 @@ ErrorMsg_W="%-60s"
 FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 
-printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
+##printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
 
-
+ScriptNameLocation() {
+    # Find where the script resides
+    # Get the DirName and ScriptName
+    if [ -L "${BASH_SOURCE[0]}" ]; then
+        # Get the *real* directory of the script
+        ScriptDirName="$(dirname "$(readlink "${BASH_SOURCE[0]}")")"   # ScriptDirName='/usr/local/bin'
+        # Get the *real* name of the script
+        ScriptName="$(basename "$(readlink "${BASH_SOURCE[0]}")")"     # ScriptName='moodle_backup.sh'
+    else
+        ScriptDirName="$(dirname "${BASH_SOURCE[0]}")"
+        # What is the name of the script?
+        ScriptName="$(basename "${BASH_SOURCE[0]}")"
+    fi
+    ScriptFullName="${ScriptDirName}/${ScriptName}"
+}
 
 #printf "$FormatString\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" "Errors" > $ReportFile
 echo "TSM backup report $Today for $SELECTION" > $ReportFile
@@ -170,6 +181,12 @@ print_line() {
     fi
     printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
 }
+
+# Find the location of the script
+ScriptNameLocation
+
+# Get the secret password
+source "$ScriptDirName"/tsm_secrets.env
 
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
