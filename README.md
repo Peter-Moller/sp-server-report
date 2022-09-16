@@ -5,11 +5,11 @@ There are two scripts:
 `inspect_one_client.sh`  
 `inspect_all_clients.sh`
 
-The first is intended for an interactive investigation of one specific client and the other for a mass-examination of a range of clients. In that case, the client list is an expected parameter to the script.
+The first is intended for an interactive investigation of one specific client and the other for a mass-examination of a range of clients. In the first case, a client name is required and an optional number, specifying the number of days back to examine, may be given. In the second case, a client list is required.
 
 Both scripts are assumed to be run on the TSM server and requires a file, `tsm_secrets.env` (excluded from git), to be present in the directory of the repo. In that file, the `id` and `pwd` to be used by `dsmadmc` must be specified. It can also be a good place to put a `LANG` environment variable (I use `export LANG=sv_SE.UTF-8`).
 
-####inspect\_one\_client.sh
+#### inspect\_one\_client.sh
 It takes two parameters:
 
   1. Name of the client to look for
@@ -24,7 +24,7 @@ The following is presented about the client:
   * When the client was registered
   * What Policy Domain it belongs to
   * What Client Option Set (“cloptset”) is used
-  * What Schedule and duration of that schedule
+  * What Schedule is active and duration of that schedule
 
 The following is presented about the history of the client for the given time period:
 
@@ -36,9 +36,18 @@ The following is presented about the history of the client for the given time pe
   * Version of the client software
   * Operating system on the client
   * Errors encoutered during the backup period
-  * 
+  * File names with unrecognized characters are reported separately
+
+The details from the run is stored in `/tmp/CLIENTNAME.out`.  
+More specifically: the output from `query node`, `query occupancy` and `query actlog` are stored in this file, while `query association` and `query schedule` are _not_. 
 
 -----
 
 Example:  
 ![examples of inspect_one_client](examples_of_inspect_one_client.jpg)
+
+-----
+
+#### inspect\_all\_clients.sh
+
+_Documentation coming!_
