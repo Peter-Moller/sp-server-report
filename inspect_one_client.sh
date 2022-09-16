@@ -17,8 +17,10 @@ ClientFile="/tmp/${CLIENT}.out"
 RANGE=$2
 if [ -z "$RANGE" ]; then
     DaysBack=" begintime=00:00:00"
+    DaysBackRelative="day"
 else
     DaysBack="-$RANGE"
+    DaysBackRelative="$RANGE days"
 fi
 
 Reset="\e[0m"
@@ -32,6 +34,8 @@ BackedupNumfiles_H="%11s"
 BackedupNumfiles_W="%'11d"
 TransferredVolume_W="%13s"
 BackeupElapsedtime_W="%-10s"
+BackupDate_W="%-12s"
+BackupTime_W="%-10s"
 BackupStatus_W="%-15s"
 ClientTotalSpaceUseMB_WH="%10s"
 ClientTotalSpaceUsedMB_W="%'10d"
@@ -42,8 +46,8 @@ ClientLastNetWork_W="%-18s"
 ClientOS_W="%-23s"
 ErrorMsg_W="%-60s"
 
-FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
-FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 
 ScriptNameLocation() {
     # Find where the script resides
@@ -74,8 +78,8 @@ print_header() {
     printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered:$Reset ${NodeRegistered:--unknown-}.${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})\n"
     echo
     #printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client name" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
-    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
-    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "name" "of files" "transf." "elapsed" "status" " on server" "server" "version" "network" "operating system" "encountered"
+    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" "Backup" "Backup" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
+    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "name" "of files" "transf." "elapsed" "date" "time" "status" " on server" "server" "version" "network" "operating system" "encountered"
 }
 
 check_node_exists() {
@@ -143,10 +147,18 @@ backup_result() {
     # Number of files:
     # (note that some client use a unicode 'non breaking space', e280af, as thousands separator. This must be dealt with!)
     # (also, note that some machines will have more than one line of reporting. We only consider the last one)
+    # Sample lines:
+    # 2022-09-16 12:34:01     ANE4954I (Session: 101638, Node: XXXXXX)  Total number of objects backed up:        7,002  (SESSION: 101638)
+    # 2022-09-16 12:34:01     ANE4961I (Session: 101638, Node: XXXXXX)  Total number of bytes transferred:       446.50 MB  (SESSION: 101638)
+    # 2022-09-15 16:24:49     ANE4964I (Session: 99285, Node: XXXXXX)  Elapsed processing time:               01:43:52  (SESSION: 99285)
+    # 2022-09-15 16:24:49     ANR2579E Schedule DAILY_10 in domain PD_10 for node XXXXXX failed (return code 12). (SESSION: 99285)
+    # 2022-09-16 12:34:01     ANR2579E Schedule DAILY_10 in domain PD_10 for node XXXXXX failed (return code 12). (SESSION: 101638)
     printf "..... getting backup results (3/4) ....."
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed -e 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"  # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
     BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                               # Ex: BackeupElapsedtime='00:46:10'
+    LastFinishDate="$(grep -E "ANR2507I|ANR2579E" $ClientFile | tail -1 | awk '{print $1}')"                                                                                                # Ex: LastFinishDate=2022-09-16
+    LastFinishTime="$(grep -E "ANR2507I|ANR2579E" $ClientFile | tail -1 | awk '{print $2}')"                                                                                                # Ex: LastFinishTime=12:34:01
     # Dual Execution?
     if [ -n "$(grep ANE4961I $ClientFile | awk '{print $1" "$3}' | uniq -d)" ]; then
         ErrorMsg="Dual executions (plz investigate); "
@@ -158,7 +170,13 @@ backup_result() {
     if [ -n "$(grep ANR2507I $ClientFile | grep "completed successfully" | tail -1)" ]; then
         BackupStatus="Successful"
     else
-        BackupStatus="NO BACKUP FOUND"
+        BackupStatus="ERROR"
+        LastSuccessfulBackup="$(grep -E "ANR2507I" $ClientFile | tail -1 | awk '{print $1" "$2}')"
+        if [ -n "$LastSuccessfulBackup" ]; then
+            LastSuccessfulMessage="Last successful backup within the last $DaysBackRelative was: $LastSuccessfulBackup"
+        else
+            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative"
+        fi
     fi
     printf "${ESC}41D"
 }
@@ -188,7 +206,10 @@ print_line() {
     if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
         BackupStatus="Conflicted!!"
     fi
-    printf "$FormatStringConten\n" "$CLIENT" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
+    printf "$FormatStringConten\n" "$CLIENT" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
+    if [ -n "$LastSuccessfulMessage" ]; then
+        echo "$LastSuccessfulMessage"
+    fi
 }
 
 print_errors() {
