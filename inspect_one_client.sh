@@ -27,9 +27,6 @@ ItalicFace="3"
 BoldFace="1"
 InvertColor="7"
 
-# Set LANG to Swedish so that all dates are in intelligent format...
-export LANG=sv_SE.UTF-8
-
 Client_W="%-13s"
 BackedupNumfiles_H="%11s"
 BackedupNumfiles_W="%'11d"
@@ -65,13 +62,16 @@ ScriptNameLocation() {
 }
 
 print_header() {
+    CommonHeader="${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T) (connected to server \"$ServerName\")"
     if [ "$DaysBack" = " begintime=00:00:00" ]; then
-        printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: today${Reset}\n"
+        #printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: today${Reset}\n"
+        printf "${CommonHeader}. Period: today${Reset}\n"
     else
-        printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
+        #printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
+        printf "${CommonHeader}. Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
     fi
     #printf "${ESC}${InvertColor}mContact: \"${ContactName:--none-}\". Node was registered ${NodeRegistered:--unknown-}. Policy Domain: ${PolicyDomain:--unknown-}. Cloptset: ${CloptSet:--unknown-}${Reset}\n"
-    printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered:$Reset ${NodeRegistered:--unknown-}.${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart $ScheduleDuration)\n"
+    printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered:$Reset ${NodeRegistered:--unknown-}.${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})\n"
     echo
     #printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client name" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
     printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
@@ -79,22 +79,25 @@ print_header() {
 }
 
 check_node_exists() {
-    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q node $CLIENT f=d")"
+    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $CLIENT f=d")"
     ClientES=$?
+    ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
     #if [ $(echo "$ServerResponse" | grep -E "^ANS8002I" | awk '{print $NF}' | cut -d. -f1) -ne 0 ]; then
     if [ $ClientES -eq 11 ]; then
         echo "Client \"$CLIENT\" does not exist on server \"$ServerName\". Exiting..."
         exit 1
     else
-        ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
         ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"
         #NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | sed -r 's;^([0-9]{2})/([0-9]{2})/([0-9]{4})(.*);\3-\1-\2;')"
         NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"
         PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"
         CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"
         Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query association * *" | grep -i -B1 "$CLIENT" | head -1 | awk '{print $NF}')"
-        ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"
-        ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"
+        ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"
+        ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"
+        # Store the data in ClientFile:
+        echo "$ClientInfo" > $ClientFile
+        echo "" >> $ClientFile
     fi
 }
 
@@ -119,8 +122,12 @@ client_info() {
     esac
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
-    ClientTotalSpaceUsedMB="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $CLIENT" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
-    ClientTotalNumFiles="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $CLIENT" | grep -E  "^\s*Number of Files" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}')"
+    ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $CLIENT")"
+    ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
+    ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}')"
+    # Add the occupancy data to the ClientFile:
+    echo "$ClientOccupancy" >> $ClientFile
+    echo "" >> $ClientFile
     printf "${ESC}40D"
 }
 
@@ -128,7 +135,7 @@ client_info() {
 # Do not include ANR2017I ('Administrator ADMIN issued command...')
 get_backup_data() {
     printf "..... gathering backup data (2/4) ....."
-    dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$CLIENT[ \)]" | grep -v "ANR2017I" > $ClientFile
+    dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$CLIENT[ \)]" | grep -v "ANR2017I" >> $ClientFile
     printf "${ESC}40D"
 }
 
