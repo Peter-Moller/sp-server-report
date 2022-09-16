@@ -26,9 +26,8 @@ The following is presented about the client:
   * What Client Option Set (“cloptset”) is used
   * What Schedule is active and duration of that schedule
 
-The following is presented about the history of the client for the given time period:
+The following is presented about the history of the client for the given time period (apart from the client name):
 
-  * Client name (duh!)
   * Number of files, bytes transferred and time elapsed for the latest backup  
 (based on `ANE4954I`, `ANE4961I` and `ANE4964I` respectively)
   * Status of the backup: if it was successful (`ANR2507I`)
