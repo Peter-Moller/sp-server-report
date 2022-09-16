@@ -9,7 +9,7 @@ The first is intended for an interactive investigation of one specific client an
 
 Both scripts are assumed to be run on the TSM server and requires a file, `tsm_secrets.env` (excluded from git), to be present in the directory of the repo. In that file, the `id` and `pwd` to be used by `dsmadmc` must be specified. It can also be a good place to put a `LANG` environment variable (I use `export LANG=sv_SE.UTF-8`).
 
-#### inspect\_one\_client.sh
+### inspect\_one\_client.sh
 It takes two parameters:
 
   1. Name of the client to look for
@@ -32,6 +32,8 @@ The following is presented about the history of the client for the given time pe
 (based on `ANE4954I`, `ANE4961I` and `ANE4964I` respectively)
   * Status of the backup: if it was successful (`ANR2507I`) or not. If no backup is found, the text “NO BACKUP FOUND” is presented. If the backup has concluded but no `ANR2507I` because of a `ANR2579E (return code 12)`, the text “Conflicted” is presented
   * Total number of files and physical space occupied on the server (from `query occupancy`)
+  * Date and time of the last backup (successful or not)  
+_if a successful backup (`ANR2507I`)was not found during the selected time, it will be highlighted_
   * Version of the client software
   * Operating system on the client
   * Errors encoutered during the backup period
@@ -47,6 +49,6 @@ Example:
 
 -----
 
-#### inspect\_all\_clients.sh
+### inspect\_all\_clients.sh
 
 _Documentation coming!_
