@@ -189,8 +189,12 @@ print_line() {
 # Find the location of the script
 ScriptNameLocation
 
-# Get the secret password
-source "$ScriptDirName"/tsm_secrets.env
+# Get the secret password, either from the users home-directory or the script-dir
+if [ -f ~/.tsm_secrets.env ]; then
+    source ~/.tsm_secrets.env
+else
+    source "$ScriptDirName"/tsm_secrets.env
+fi
 
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
