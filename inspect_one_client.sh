@@ -23,6 +23,7 @@ else
     DaysBackRelative="$RANGE days"
 fi
 
+NL=$'\n'
 Reset="\e[0m"
 ESC="\e["
 ItalicFace="3"
@@ -139,6 +140,7 @@ client_info() {
 # Do not include ANR2017I ('Administrator ADMIN issued command...')
 get_backup_data() {
     printf "..... gathering backup data (2/4) ....."
+    echo "Below are all entries in the TSM 'actlog' regarding \"$CLIENT\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
     dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$CLIENT[ \)]" | grep -v "ANR2017I" >> $ClientFile
     printf "${ESC}40D"
 }
@@ -157,6 +159,7 @@ backup_result() {
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed -e 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"  # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
     BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                               # Ex: BackeupElapsedtime='00:46:10'
+    ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2-)"                                                                                          # Ex: ClientLastAccess='2018-11-01 11:39:06'
     LastFinishDate="$(grep -E "ANR2507I|ANR2579E" $ClientFile | tail -1 | awk '{print $1}')"                                                                                                # Ex: LastFinishDate=2022-09-16
     LastFinishTime="$(grep -E "ANR2507I|ANR2579E" $ClientFile | tail -1 | awk '{print $2}')"                                                                                                # Ex: LastFinishTime=12:34:01
     # Dual Execution?
@@ -175,7 +178,7 @@ backup_result() {
         if [ -n "$LastSuccessfulBackup" ]; then
             LastSuccessfulMessage="Last successful backup within the last $DaysBackRelative was: $LastSuccessfulBackup"
         else
-            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative"
+            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative (Last client access to the server was: $ClientLastAccess)"
         fi
     fi
     printf "${ESC}41D"
