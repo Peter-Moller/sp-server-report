@@ -7,8 +7,10 @@
 # The plan is to instead have the user provide either POLICYDOMAIN och a SCHEDULE and then
 # get the client list from those and produce result accoringly.
 
-CS_SERVERS="DOKUWIKI COURSEGIT FILEMAKER FORSETE LAGRING3 LGIT945 LMGM778 MONITOR MOODLE2020 PUCCINI ROBOTMIND1 TSM3 VILDE VM67 WEB2020"
-CS_CLIENTS="ALAN ALEXANDER ALEXANDRU ALFREDA ALMAOA ANDRZEJL ANDRZEJLDESK ANDYO ANNAA ANTONA AYESHAJ BIRGER BJORNIX BJORNR BJORNUX BORISM BRUCE CARINAA CHRISTELF CHRISTIN CHRISTOPHR DANIELH DRROBERTZ EBJARNASON ELINAT EMELIEE ERIKH FASEE FLAVIUSG GARETHC GORELH HAMPUSA HEIDIE IDRISS JACEKM JONASW KLANG KONSTANTINM LARSB LUIGI MAIKEK MARCUSK MARTINH MASOUMEH MATHIASH MATTHIAS MICHAELD MICHAELDIMAC MOMINAR NAZILA NIKLAS NORIC PATRIKP PENG PERA PERR PETERMAC PIERREN QUNYINGS REGNELL RIKARDO ROGERH ROYA RSSKNI SANDRAHP SERGIOR SIMONKL SUSANNA THOREH ULFA ULRIKA VOLKER"
+CS_SERVERS="DOKUWIKI2 COURSEGIT FILEMAKER FORSETE LAGRING3 LGIT945 LMGM778 MONITOR MOODLE2020 PUCCINI ROBOTMIND1 TSM3 VILDE VM67 WEB2020"
+#CS_SERVERS="TSM3"
+CS_CLIENTS="ABRUCE ALAN ALEXANDER ALEXANDRU ALFREDA ALMAOA ANDRZEJL ANDRZEJLDESK ANDYO ANNAA ANTONA AYESHAJ BIRGER BJORNIX BJORNR BJORNUX BORISM BRUCE CARINAA CHRISTELF CHRISTIN CHRISTOPHR DANIELH DRROBERTZ EBJARNASON ELINAT EMELIEE ERIKH FASEE FLAVIUSG GARETHC GORELH HAMPUSA HEIDIE IDRISS JACEKM JONASW KLANG KONSTANTINM LARSB LUIGI MAIKEK MARCUSK MARTINH MASOUMEH MATHIASH MATTHIAS MICHAELD MICHAELDIMAC MOMINAR NAZILA NIKLAS NORIC PATRIKP PENG PERA PERR PETERMAC PIERREN QUNYINGS REGNELL RIKARDO ROGERH ROYA RSSKNI SANDRAHP SERGIOR SIMONKL SUSANNA THOREH ULFA ULRIKA VOLKER"
+CS_KLIENTS="PETERMAC PIERREN"
 EIT_SERVERS=""
 EIT_CLIENTS=""
 BME_SERVERS=""
@@ -21,6 +23,7 @@ shopt -s nocasematch
 case "${SELECTION/-/_}" in
     CS_SERVERS  ) Dept="CS" ;;
     CS_CLIENTS  ) Dept="CS" ;;
+    CS_KLIENTS  ) Dept="CS" ;;
     EIT_SERVERS ) Dept="EIT" ;;
     EIT_CLIENTS ) Dept="EIT" ;;
     BME_SERVERS ) Dept="BME" ;;
@@ -70,7 +73,14 @@ ErrorMsg_W="%-60s"
 FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 
-##printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
+
+#   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
+#  /  ___| |_   _|  / _ \  | ___ \ |_   _|     |  _  | |  ___|     |  ___| | | | | | \ | | /  __ \ |_   _| |_   _| |  _  | | \ | | /  ___|
+#  \ `--.    | |   / /_\ \ | |_/ /   | |       | | | | | |_        | |_    | | | | |  \| | | /  \/   | |     | |   | | | | |  \| | \ `--. 
+#   `--. \   | |   |  _  | |    /    | |       | | | | |  _|       |  _|   | | | | | . ` | | |       | |     | |   | | | | | . ` |  `--. \
+#  /\__/ /   | |   | | | | | |\ \    | |       \ \_/ / | |         | |     | |_| | | |\  | | \__/\   | |    _| |_  \ \_/ / | |\  | /\__/ /
+#  \____/    \_/   \_| |_/ \_| \_|   \_/        \___/  \_|         \_|      \___/  \_| \_/  \____/   \_/    \___/   \___/  \_| \_/ \____/ 
+
 
 ScriptNameLocation() {
     # Find where the script resides
@@ -88,7 +98,6 @@ ScriptNameLocation() {
     ScriptFullName="${ScriptDirName}/${ScriptName}"
 }
 
-#printf "$FormatString\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" "Errors" > $ReportFile
 echo "TSM backup report $Today for $SELECTION" > $ReportFile
 printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
 ##printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" "Total [MB]" " ∑ files" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
@@ -159,6 +168,10 @@ client_info() {
 
 error_detection() {
     ErrorMsg=""
+    # First: see if there's no schedule associated with the node
+    if [ -z "$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule * node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:")" ]; then
+        ErrorMsg="--- NO SCHEDULE ASSOCIATED ---"
+    fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         ErrorMsg+="ANE4007E (access denied to object); "
     fi
@@ -182,9 +195,25 @@ print_line() {
     # Get the last access date
     elif [ "$BackupStatus" = "ERROR" ]; then
         BackupStatus='!'" $(echo "$ClientLastAccess" | awk '{print $1}') "'!'
+        # Get the number of days since the last contact
+        LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
+        DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
+        if [ $DaysSinceLastContact -gt 30 ]; then
+            ErrorMsg+="\"$client\" has not contacted server \"$ServerName\" for $DaysSinceLastContact days! Please investigate!"
+        fi
     fi
     printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
 }
+
+
+#   _____   _   _  ______       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
+#  |  ___| | \ | | |  _  \     |  _  | |  ___|     |  ___| | | | | | \ | | /  __ \ |_   _| |_   _| |  _  | | \ | | /  ___|
+#  | |__   |  \| | | | | |     | | | | | |_        | |_    | | | | |  \| | | /  \/   | |     | |   | | | | |  \| | \ `--. 
+#  |  __|  | . ` | | | | |     | | | | |  _|       |  _|   | | | | | . ` | | |       | |     | |   | | | | | . ` |  `--. \
+#  | |___  | |\  | | |/ /      \ \_/ / | |         | |     | |_| | | |\  | | \__/\   | |    _| |_  \ \_/ / | |\  | /\__/ /
+#  \____/  \_| \_/ |___/        \___/  \_|         \_|      \___/  \_| \_/  \____/   \_/    \___/   \___/  \_| \_/ \____/ 
+#
+
 
 # Find the location of the script
 ScriptNameLocation
@@ -199,6 +228,7 @@ fi
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
 ActlogToday="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
+ServerName="$(echo "$ActlogToday" | grep "Session established with server" | cut -d: -f1 | awk '{print $NF}')"
 
 # Loop through the list of clients
 for client in $CLIENTS
