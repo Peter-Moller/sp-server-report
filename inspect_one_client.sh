@@ -102,14 +102,13 @@ check_node_exists() {
         echo "Client \"$CLIENT\" does not exist on server \"$ServerName\". Exiting..."
         exit 1
     else
-        ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"
-        #NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | sed -r 's;^([0-9]{2})/([0-9]{2})/([0-9]{4})(.*);\3-\1-\2;')"
-        NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"
-        PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"
-        CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"
-        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query association * *" | grep -i -B1 "\b${CLIENT}\b" | head -1 | awk '{print $NF}')"
-        ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"
-        ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"
+        ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ContactName='Peter M?ller'
+        NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                              # Ex: NodeRegistered=2022-07-01
+        PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                        # Ex: PolicyDomain=PD_01
+        CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                     # Ex: CloptSet=PD_01_OS_MACOS_2
+        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule * node=$CLIENT" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
+        ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"         # Ex: ScheduleStart=08:00:00
+        ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')" # Ex: ScheduleDuration='+ 10 Hour(s)'
         # Store the data in ClientFile:
         echo "$ClientInfo" > $ClientFile
         echo "" >> $ClientFile
@@ -118,7 +117,6 @@ check_node_exists() {
 
 client_info() {
     printf "..... gathering client info (1/4) ....."
-    #ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q node $CLIENT f=d")"
     ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed -e 's/ Version //' -e 's/, release /./' -e 's/, level /./' | cut -d. -f1-3)"   # Ex: ClientVersion='8.1.13'
     ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed -e 's/^ //')"                                                         # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
