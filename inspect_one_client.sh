@@ -97,7 +97,7 @@ check_node_exists() {
         NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"
         PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"
         CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"
-        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query association * *" | grep -i -B1 "$CLIENT" | head -1 | awk '{print $NF}')"
+        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query association * *" | grep -i -B1 "\b${CLIENT}\b" | head -1 | awk '{print $NF}')"
         ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"
         ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"
         # Store the data in ClientFile:
