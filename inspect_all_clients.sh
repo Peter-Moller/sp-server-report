@@ -16,8 +16,6 @@ EIT_CLIENTS=""
 BME_SERVERS=""
 BME_CLIENTS=""
 
-Recipient="peter.moller@cs.lth.se,anders.bruce@cs.lth.se"
-
 SELECTION=$1
 shopt -s nocasematch
 case "${SELECTION/-/_}" in
