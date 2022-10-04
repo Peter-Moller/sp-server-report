@@ -51,4 +51,29 @@ Example:
 
 ### inspect\_all\_clients.sh
 
-_Documentation coming!_
+Currently, the script is a bit of a hack. The plan is to provide a policy domain as argument and then inspect all clients in that domain. Reports are sent via email to `$Recipient` (specified in `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`).
+
+The report itself will, however, not change. Given a list of clients, it traverse that list and generate a table like report as in this example:
+
+![examples of inspect_all_clients](examples_of_inspect_all_clients.jpg)
+
+A number of data points are specified:
+
+  * Client name
+  * Number of file during the last backup session (`ANE4954I`)
+  * Total number of bytes transferred (`ANE4961I`)
+  * Elapsed processing time (`ANE4964I`)
+  * State: successful or not. If the client hasn’t had any communication with the server in >30 days, a special warning about that is given
+  * Physical Space Occupied on the server (in total)
+  * Number of Files on the server (in total)
+  * Version of the client software on the client computer
+  * From what network the last client access occurred
+  * What operating system the client is using
+  * Errors. During the years, we have seen the following errors and thus warns for them:
+    * No schedule associated
+    * Access denied to object ([`ANE4007E`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-ane4000e#ANE4007E))
+    * Return code ([`ANR2579E`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-anr0010w#ANR2579E))
+    * Invalid password submitted ([`ANR0424W`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-anr0010w#ANR0424W))
+    * Object contains unrecognized characters ([`ANS4042E`](https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients))
+
+_Note that there may be other error messages that may be relevant to look for!_
