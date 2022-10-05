@@ -10,7 +10,7 @@
 CS_SERVERS="DOKUWIKI2 COURSEGIT FILEMAKER FORSETE LAGRING3 LGIT945 LMGM778 MONITOR MOODLE2020 PUCCINI ROBOTMIND1 TSM3 VILDE VM67 WEB2020"
 #CS_SERVERS="TSM3"
 CS_CLIENTS="ABRUCE ALAN ALEXANDER ALEXANDRU ALFREDA ALMAOA ANDRZEJL ANDRZEJLDESK ANDYO ANNAA ANTONA AYESHAJ BIRGER BJORNIX BJORNR BJORNUX BORISM BRUCE CARINAA CHRISTELF CHRISTIN CHRISTOPHR DANIELH DRROBERTZ EBJARNASON ELINAT EMELIEE ERIKH FASEE FLAVIUSG GARETHC GORELH HAMPUSA HEIDIE IDRISS JACEKM JONASW KLANG KONSTANTINM LARSB LUIGI MAIKEK MARCUSK MARTINH MASOUMEH MATHIASH MATTHIAS MICHAELD MICHAELDIMAC MOMINAR NAZILA NIKLAS NORIC PATRIKP PENG PERA PERR PETERMAC PIERREN QUNYINGS REGNELL RIKARDO ROGERH ROYA RSSKNI SANDRAHP SERGIOR SIMONKL SUSANNA THOREH ULFA ULRIKA VOLKER"
-CS_KLIENTS="PETERMAC PIERREN"
+CS_KLIENTS="CHRISTIN"
 EIT_SERVERS=""
 EIT_CLIENTS=""
 BME_SERVERS=""
@@ -170,18 +170,21 @@ error_detection() {
     if [ -z "$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule * node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:")" ]; then
         ErrorMsg="--- NO SCHEDULE ASSOCIATED ---"
     fi
+    if [ -n "$(echo "$DualExecutionsToday" | grep -E "\b$client\b")" ]; then
+        ErrorMsg+="Dual executions (investigate!)"
+    fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         ErrorMsg+="ANE4007E (access denied to object); "
     fi
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
-        ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed -e 's/(//' -e 's/)//' | tr '\n' ',' | sed -e 's/,c/, c/g' -e 's/,$//')"
+        ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed -e 's/(//' -e 's/)//' | sort -u | tr '\n' ',' | sed -e 's/,c/, c/g' -e 's/,$//')"
         ErrorMsg+="ANR2579E ($ErrorCodes); "
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         ErrorMsg+="ANR0424W (invalid password submitted); "
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
-        ErrorMsg+="ANE4042E - object contains unrecognized characters during scheduled backups"
+        ErrorMsg+="ANE4042E - (unrecognized characters); "
     fi
 }
 
@@ -197,7 +200,7 @@ print_line() {
         LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
         DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
         if [ $DaysSinceLastContact -gt 30 ]; then
-            ErrorMsg+="\"$client\" has not contacted server \"$ServerName\" for $DaysSinceLastContact days! Please investigate!"
+            ErrorMsg="\"$client\" has not contacted server \"$ServerName\" for $DaysSinceLastContact days! Please investigate!"
         fi
     fi
     printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
@@ -226,6 +229,8 @@ fi
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
 ActlogToday="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
+# Get a notification if a client have more thatn one 'ANE4961I'; if so, there are two clients executing and that should be rectified
+DualExecutionsToday="$(echo "$ActlogToday" | grep ANE4961I | awk '{print $7}' | sed 's/)//' | sort | uniq -d)"  # Ex: DualExecutionsToday=NIKLAS
 ServerName="$(echo "$ActlogToday" | grep "Session established with server" | cut -d: -f1 | awk '{print $NF}')"
 
 # Loop through the list of clients
