@@ -180,8 +180,8 @@ error_detection() {
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         ErrorMsg+="ANR0424W (invalid password submitted); "
     fi
-    if [ -n "$(grep ANS4042E "$ClientFile")" ]; then
-        ErrorMsg+="ANS4042E - object contains unrecognized characters during scheduled backups"
+    if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
+        ErrorMsg+="ANE4042E - object contains unrecognized characters during scheduled backups"
     fi
 }
 
@@ -235,7 +235,7 @@ do
     ErrorMsg=""
 
     # Go for the entire act log instead; if not, we will not get the infamous ANR2579E errors or the ANR2507I conclusion
-    echo "$ActlogToday" | grep -Ei "\s$client[ \)]" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANS4042E" > "$ClientFile"
+    echo "$ActlogToday" | grep -Ei "\s$client[ \)]" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANE4042E" > "$ClientFile"
 
     # Get client info (version, IP-address and such)
     client_info
