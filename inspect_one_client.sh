@@ -94,6 +94,7 @@ print_header() {
 }
 
 check_node_exists() {
+    printf "..... making sure the client exists (1/5) ....."
     ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $CLIENT f=d")"
     ClientES=$?
     ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
@@ -113,10 +114,11 @@ check_node_exists() {
         echo "$ClientInfo" > $ClientFile
         echo "" >> $ClientFile
     fi
+    printf "${ESC}48D"
 }
 
 client_info() {
-    printf "..... gathering client info (1/4) ....."
+    printf "..... gathering client info (2/5) ....."
     ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed -e 's/ Version //' -e 's/, release /./' -e 's/, level /./' | cut -d. -f1-3)"   # Ex: ClientVersion='8.1.13'
     ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed -e 's/^ //')"                                                         # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
@@ -147,7 +149,7 @@ client_info() {
 # Get the activity log for today (saves time to do it only one)
 # Do not include ANR2017I ('Administrator ADMIN issued command...')
 get_backup_data() {
-    printf "..... gathering backup data (2/4) ....."
+    printf "..... gathering backup data (3/5) ....."
     echo "Below are all entries in the TSM 'actlog' regarding \"$CLIENT\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
     dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$CLIENT[ \)]" | grep -v "ANR2017I" >> $ClientFile
     printf "${ESC}40D"
@@ -163,7 +165,7 @@ backup_result() {
     # 2022-09-15 16:24:49     ANE4964I (Session: 99285, Node: XXXXXX)  Elapsed processing time:               01:43:52  (SESSION: 99285)
     # 2022-09-15 16:24:49     ANR2579E Schedule DAILY_10 in domain PD_10 for node XXXXXX failed (return code 12). (SESSION: 99285)
     # 2022-09-16 12:34:01     ANR2579E Schedule DAILY_10 in domain PD_10 for node XXXXXX failed (return code 12). (SESSION: 101638)
-    printf "..... getting backup results (3/4) ....."
+    printf "..... getting backup results (4/5) ....."
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed -e 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"  # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
     BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                               # Ex: BackeupElapsedtime='00:46:10'
@@ -193,7 +195,7 @@ backup_result() {
 }
 
 error_detection() {
-    printf "..... looking for errors (4/4) ....."
+    printf "..... looking for errors (5/5) ....."
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         ErrorMsg+="ANE4007E (access denied to object); "
     fi
