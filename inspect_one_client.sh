@@ -100,6 +100,7 @@ check_node_exists() {
     ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
     #if [ $(echo "$ServerResponse" | grep -E "^ANS8002I" | awk '{print $NF}' | cut -d. -f1) -ne 0 ]; then
     if [ $ClientES -eq 11 ]; then
+        printf "${ESC}48D"
         echo "Client \"$CLIENT\" does not exist on server \"$ServerName\". Exiting..."
         exit 1
     else
