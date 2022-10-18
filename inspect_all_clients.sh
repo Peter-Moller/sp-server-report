@@ -176,7 +176,7 @@ error_detection() {
         ErrorMsg="--- NO SCHEDULE ASSOCIATED ---"
     fi
     if [ -n "$(echo "$DualExecutionsToday" | grep -E "\b$client\b")" ]; then
-        ErrorMsg+="Dual executions (investigate!)"
+        ErrorMsg+="Dual executions (investigate!); "
     fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         ErrorMsg+="ANE4007E (access denied to object); "
