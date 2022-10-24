@@ -54,11 +54,13 @@ BackedupNumfiles_H="%11s"
 BackedupNumfiles_W="%'11d"
 TransferredVolume_W="%13s"
 BackeupElapsedtime_W="%-10s"
-BackupStatus_W="%-15s"
+BackupStatus_W="%-23s"
 ClientTotalSpaceUseMB_WH="%10s"
 ClientTotalSpaceUsedMB_W="%'10d"
 ClientTotalNumFile_WH="%11s"
 ClientTotalNumFiles_W="%'11d"
+ClientNumFilespaces_WH="%6s"
+ClientNumFilespaces_W="%'6d"
 ClientVersion_W="%-9s"
 ClientLastNetWork_W="%-18s"
 ClientOS_W="%-23s"
@@ -68,8 +70,8 @@ ErrorMsg_W="%-60s"
 #FormatString=      "%-13s%11s%13s  %-10s%-15s%'10d  %-9s%-18s%-23s%-60s"
 ##FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalSpaceUseMB_WH}  ${ClientTotalNumFile_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 ##FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalSpaceUsedMB_W}${ClientTotalNumFiles_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
-FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
-FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientNumFilespaces_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientNumFilespaces_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -96,47 +98,12 @@ ScriptNameLocation() {
     ScriptFullName="${ScriptDirName}/${ScriptName}"
 }
 
-echo "TSM backup report $Today for $SELECTION" > $ReportFile
-printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Duration" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
-##printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" "Total [MB]" " ∑ files" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
-
-backup_result() {
-    # Number of files:
-    # (note that some client use a unicode 'non breaking space', e280af, as thousands separator. This must be dealt with!)
-    # (also, note that some machines will have more than one line of reporting. We only consider the last one)
-    BackedupNumfiles="$(grep ANE4954I $ClientFile | sed -e 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"  # Ex: BackedupNumfiles='3483'
-    TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
-    BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                               # Ex: BackeupElapsedtime='00:46:10'
-    # So, did it end successfully?
-    if [ -n "$(grep ANR2507I $ClientFile | grep "completed successfully")" ]; then
-        BackupStatus="Successful"
-    else
-        BackupStatus=""
-        # We need to investiage!
-        # As a first step, look at the last 30 days and look for ANR2507I ("Schedule ... completed successfully")
-        # If that doesn't give us anything, look in that data for the last BackedupNumfiles ≠ 0
-        if [ -z "$LongResult" ]; then
-            # Do not include 'ANR2017I Administrator ADMIN issued command:'
-            LongResult="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today-30 begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
-        fi
-        # So, is ANR2507I in this history?
-        LastSuccessfulTemp="$(echo "$LongResult" | grep -Ei "\s$client[ \)]" | grep "ANR2507I" | tail -1 | awk '{print $1" "$2}')"   # Ex: LastSuccessfulTemp='08/28/2022 20:01:03'
-        EpochtimeLastSuccessful=$(date -d "$LastSuccessfulTemp" +"%s")                                                              # Ex: EpochtimeLastSuccessful=1661709663
-        LastSuccessfulNumDays=$(echo "$((Now - EpochtimeLastSuccessful)) / 81400" | bc)                                             # Ex: LastSuccessfulNumDays=11
-        if [ -z "$LastSuccessfulTemp" ]; then
-            BackupStatus="ERROR"
-        else
-            if [ $LastSuccessfulNumDays -eq 1 ]; then
-                BackupStatus="Yesterday"
-            else
-                BackupStatus="$LastSuccessfulNumDays days ago"
-            #elif [ "$(echo $LastSuccessfulTemp | cut -c3,6)" = "//" ]; then
-                #BackupStatus="!!$(echo "${LastSuccessfulTemp:6:4}-${LastSuccessfulTemp:0:2}-${LastSuccessfulTemp:3:2}!!")"
-            #else
-                #BackupStatus="--$LastSuccessfulTemp--"
-            fi
-        fi
-    fi
+server_info() {
+    ServerInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query status")"
+    #ServerName="$(echo "$ActlogToday" | grep "Session established with server" | cut -d: -f1 | awk '{print $NF}')"
+    ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                             # Ex: ServerName='TSM3'
+    ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"            # Ex: ActLogLength=30
+    EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"   # Ex: EventLogLength=14
 }
 
 client_info() {
@@ -149,31 +116,109 @@ client_info() {
         "10.7")    ClientLastNetwork="eduroam (staff)" ;;
         "10.8")    ClientLastNetwork="eduroam (stud.)" ;;
         "10.9")    ClientLastNetwork="eduroam (other)" ;;
-        "" )       ClientLastNetwork="Unknown" ;;
+        "" )       ClientLastNetwork="Unknown" ;; 
         * )        ClientLastNetwork="outside LU" ;;
-    esac
+    esac 
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-3)" in
         "130.235.16" ) ClientLastNetwork="CS server net" ;;
         "130.235.17" ) ClientLastNetwork="CS server net" ;;
         "10.0.16"    ) ClientLastNetwork="CS client net" ;;
     esac
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
+    # Get some more info about macOS:
+    if [ "$ClientOS" = "Macintosh" ]; then
+        OSver="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2)"
+        ClientOS="macOS$OSver"
+    fi
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2-)"     # Ex: ClientLastAccess='2018-11-01   11:39:06'
     ClientTotalSpaceTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | grep "Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"  # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
     ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                                                  # Ex: ClientTotalSpaceUsedMB=1502702
     ClientTotalNumfilesTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"       # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
-    ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                                     # Ex: ClientTotalNumFiles=1502702
+    ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                                  # Ex: ClientTotalNumFiles=1502702
     # The following is no longer used since it's A) wrong and B) awk summaries in scientific notation which is not desirable. Kept here for some reason...
     #ClientTotalSpaceUsedMB="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | awk '/Physical Space Occupied/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
     #ClientTotalNumFiles="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | awk '/Number of Files/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}')"
+    # Get the number of file spaces on the client
+    ClientNumFilespaces=$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q filespace $client f=d" | grep -cE "^\s*Filespace Name:")
+}
+
+backup_result() {
+    # Number of files:
+    # (note that some client use a unicode 'non breaking space', e280af, as thousands separator. This must be dealt with!)
+    # (also, note that some machines will have more than one line of reporting. We only consider the last one)
+    BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"     # Ex: BackedupNumfiles='3483'
+    TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
+    BackedupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                               # Ex: BackedupElapsedtime='00:46:10'
+    # So, did it end successfully (ANR2507I)?
+    if [ -n "$(grep ANR2507I $ClientFile)" ]; then
+        BackupStatus="Successful"
+    # Did it end, but unsuccessfully (ANR2579E)?
+    elif [ -n "$(grep ANR2579E $ClientFile)" ]; then
+        BackupStatus="Conflicted!!"
+    else
+        # OK, so there has been no backup today (successful or not). 
+        # We need to get historical information (i.e. NOT look to ClientFile but rather AllConcludedBackups)
+        BackupStatus=""
+        # No backup the last day; we need to investiage!
+        # Look for ANR2507I in the total history
+        LastSuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2507I | tail -1 | awk '{print $1" "$2}')"      # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
+        EpochtimeLastSuccessful=$(date -d "$LastSuccessfulBackup" +"%s")                                                                       # Ex: EpochtimeLastSuccessful=1661709663
+        LastSuccessfulNumDays=$(echo "$((Now - EpochtimeLastSuccessful)) / 81400" | bc)                                                      # Ex: LastSuccessfulNumDays=11
+        # The same for ANR2579E:
+        LastUnsuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2579E | tail -1 | awk '{print $1" "$2}')"  # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
+        EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                           # Ex: EpochtimeLastUnsuccessful=1666094861
+        LastUnsuccessfulNumDays=$(echo "$((Now - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                            # Ex: LastSuccessfulNumDays=1
+        # If there is a successful backup in the total history, get when that was
+        if [ -n "$LastSuccessfulBackup" ]; then
+            if [ $LastSuccessfulNumDays -eq 1 ]; then
+                BackupStatus="Yesterday"
+            else
+                BackupStatus="$LastSuccessfulNumDays days ago"
+            fi
+        elif [ -n "$LastUnsuccessfulBackup" ]; then
+            # there was an unsuccessful backup - report it
+            if [ $LastUnsuccessfulNumDays -eq 1 ]; then
+                BackupStatus="Yesterday (conflicted)"
+            else
+                BackupStatus="$LastUnsuccessfulNumDays days ago (conflicted)"
+            fi
+        elif [ -z "$ClientTotalNumFiles" ] && [ -z "$ClientTotalSpaceUsedMB" ]; then
+            BackupStatus="NEVER"
+            ErrorMsg="Client \"$client\" has never had a backup"
+        else
+        # So there is no info about backup but still files on the server. 
+            # There is no known backup, but there *are* files on the server, it's "complicated"
+            BackupStatus=">${ActLogLength} days"
+            #ErrorMsg="No backup in $ActLogLength days but files on server; "
+            ErrorMsg="Last contact: $(echo "$ClientLastAccess" | awk '{print $1}'); "
+            # Get the number of days since the last contact
+            LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
+            DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
+            # Update 2022-10-23: I now know how to get the last date of backup: 
+            # Do a 'q filespace $client f=d' and look for "Days Since Last Backup Completed:"
+            # Note that it will be one day per filespace (file system)
+            NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "q filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+            # Ex: NumDaysSinceLastBackupTemp='1
+            #     298
+            #     339'
+            # different way of doing this if we have one or more rows
+            if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
+                BackupStatus="Last backup: $NumDaysSinceLastBackupTemp days ago"
+                ErrorMsg="Backup is not working!!!; "
+            else
+                BackupStatus="Last backup: $(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1) days ago"
+                ErrorMsg="Backup is not working!!!; "
+            fi
+        fi
+    fi
 }
 
 error_detection() {
-    ErrorMsg=""
+    #ErrorMsg=""
     # First: see if there's no schedule associated with the node
     if [ -z "$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule * node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:")" ]; then
-        ErrorMsg="--- NO SCHEDULE ASSOCIATED ---"
+        ErrorMsg+="--- NO SCHEDULE ASSOCIATED ---"
     fi
     if [ -n "$(echo "$DualExecutionsToday" | grep -E "\b$client\b")" ]; then
         ErrorMsg+="Dual executions (investigate!); "
@@ -195,20 +240,7 @@ error_detection() {
 
 # Print the result
 print_line() {
-    # Fix the strange situation where a backup has taken place but Return code 12 says it hasn't
-    if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
-        BackupStatus="Conflicted!!"
-    # Get the last access date
-    elif [ "$BackupStatus" = "ERROR" ]; then
-        BackupStatus='!'" $(echo "$ClientLastAccess" | awk '{print $1}') "'!'
-        # Get the number of days since the last contact
-        LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
-        DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
-        if [ $DaysSinceLastContact -gt 30 ]; then
-            ErrorMsg="\"$client\" has not contacted server \"$ServerName\" for $DaysSinceLastContact days! Please investigate!"
-        fi
-    fi
-    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
+    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "${ClientNumFilespaces:-0}" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
 }
 
 
@@ -231,12 +263,21 @@ else
     source "$ScriptDirName"/tsm_secrets.env
 fi
 
+# Get basic server info
+server_info
+
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
 ActlogToday="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
-# Get a notification if a client have more thatn one 'ANE4961I'; if so, there are two clients executing and that should be rectified
+# Get a notification if a client have more than one 'ANE4961I'; if so, there are two clients executing and that should be rectified
 DualExecutionsToday="$(echo "$ActlogToday" | grep ANE4961I | awk '{print $7}' | sed 's/)//' | sort | uniq -d)"  # Ex: DualExecutionsToday=NIKLAS
-ServerName="$(echo "$ActlogToday" | grep "Session established with server" | cut -d: -f1 | awk '{print $NF}')"
+# Get all concluded executions (ANR2579E or ANR2507I) the last year. This will save a lot of time later on
+AllConcludedBackups="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
+
+echo "$Today: Spectrum Protect backup report for $SELECTION on server $ServerName" > $ReportFile
+printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Duration" "Status" " ∑ files" "Total [MB]" "# FS" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
+##printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Time" "Status" "Total [MB]" " ∑ files" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
+
 
 # Loop through the list of clients
 for client in $CLIENTS
@@ -261,8 +302,12 @@ do
     #rm $ClientFile
 done
 
+# Calculate elapsed time
+Then=$(date +%s)
+ElapsedTime=$(( Then - Now ))
+
 # Print a finish line
-echo "END" >> $ReportFile
+echo "END (time: $((ElapsedTime%3600/60))m $((ElapsedTime%60))s)" >> $ReportFile
 
 # Send an email report
 mailx -s "Backuprapport $SELECTION" "$Recipient" < "$ReportFile"
