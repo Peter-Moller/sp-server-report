@@ -107,7 +107,7 @@ server_info() {
 }
 
 client_info() {
-    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q node $client f=d")"
+    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $client f=d")"
     ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed -e 's/ Version //' -e 's/, release /./' -e 's/, level /./' | cut -d. -f1-3)"   # Ex: ClientVersion='8.1.13'
     ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed -e 's/^ //')"                                                         # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
@@ -132,15 +132,15 @@ client_info() {
     fi
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2-)"     # Ex: ClientLastAccess='2018-11-01   11:39:06'
-    ClientTotalSpaceTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | grep "Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"  # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
+    ClientTotalSpaceTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occup $client" | grep "Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"  # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
     ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                                                  # Ex: ClientTotalSpaceUsedMB=1502702
-    ClientTotalNumfilesTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"       # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
+    ClientTotalNumfilesTemp="$(LANG=en_US dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occup $client" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"       # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
     ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                                  # Ex: ClientTotalNumFiles=1502702
     # The following is no longer used since it's A) wrong and B) awk summaries in scientific notation which is not desirable. Kept here for some reason...
-    #ClientTotalSpaceUsedMB="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | awk '/Physical Space Occupied/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
-    #ClientTotalNumFiles="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q occup $client" | awk '/Number of Files/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}')"
+    #ClientTotalSpaceUsedMB="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occup $client" | awk '/Physical Space Occupied/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
+    #ClientTotalNumFiles="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occup $client" | awk '/Number of Files/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}')"
     # Get the number of file spaces on the client
-    ClientNumFilespaces=$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "q filespace $client f=d" | grep -cE "^\s*Filespace Name:")
+    ClientNumFilespaces=$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
 }
 
 backup_result() {
@@ -196,19 +196,19 @@ backup_result() {
             LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
             DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
             # Update 2022-10-23: I now know how to get the last date of backup: 
-            # Do a 'q filespace $client f=d' and look for "Days Since Last Backup Completed:"
+            # Do a 'query filespace $client f=d' and look for "Days Since Last Backup Completed:"
             # Note that it will be one day per filespace (file system)
-            NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "q filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+            NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
             # Ex: NumDaysSinceLastBackupTemp='1
             #     298
             #     339'
             # different way of doing this if we have one or more rows
             if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
                 BackupStatus="Last backup: $NumDaysSinceLastBackupTemp days ago"
-                ErrorMsg="Backup is not working!!!; "
+                ErrorMsg="BACKUP IS NOT WORKING!!!; "
             else
                 BackupStatus="Last backup: $(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1) days ago"
-                ErrorMsg="Backup is not working!!!; "
+                ErrorMsg="BACKUP IS NOT WORKING!!!; "
             fi
         fi
     fi
@@ -235,6 +235,10 @@ error_detection() {
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
         ErrorMsg+="ANE4042E (unrecognized characters); "
+    fi
+    # Deal with excessive number of filespaces
+    if [ $ClientNumFilespaces -gt 10 ]; then
+        ErrorMsg+=">10 filespaces!; "
     fi
 }
 
@@ -268,11 +272,11 @@ server_info
 
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
-ActlogToday="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
+ActlogToday="$(dsmadmc -id=$id -password=$pwd -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
 # Get a notification if a client have more than one 'ANE4961I'; if so, there are two clients executing and that should be rectified
 DualExecutionsToday="$(echo "$ActlogToday" | grep ANE4961I | awk '{print $7}' | sed 's/)//' | sort | uniq -d)"  # Ex: DualExecutionsToday=NIKLAS
 # Get all concluded executions (ANR2579E or ANR2507I) the last year. This will save a lot of time later on
-AllConcludedBackups="$(dsmadmc -id=$id -password=$pwd -TABdelimited "q act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
+AllConcludedBackups="$(dsmadmc -id=$id -password=$pwd -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
 
 echo "$Today: Spectrum Protect backup report for $SELECTION on server $ServerName" > $ReportFile
 printf "$FormatStringHeader\n" "CLIENT" "NumFiles" "Transferred" "Duration" "Status" " ∑ files" "Total [MB]" "# FS" "Version" "Client network" "Client OS" "Errors" >> $ReportFile
