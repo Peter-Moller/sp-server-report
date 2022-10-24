@@ -205,10 +205,10 @@ backup_result() {
             # different way of doing this if we have one or more rows
             if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
                 BackupStatus="$NumDaysSinceLastBackupTemp days ago"
-                ErrorMsg="BACKUP IS NOT WORKING!!!; "
+                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!!!; "
             else
                 BackupStatus="$(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1) days ago"
-                ErrorMsg="BACKUP IS NOT WORKING!!!; "
+                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!!!; "
             fi
         fi
     fi
@@ -244,6 +244,10 @@ error_detection() {
 
 # Print the result
 print_line() {
+    # If we have a critical error message, display only that:
+    if [ -n "$CriticalErrorMsg" ]; then
+        ErrorMsg="$CriticalErrorMsg"
+    fi
     printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "${ClientNumFilespaces:-0}" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
 }
 
@@ -288,6 +292,7 @@ for client in $CLIENTS
 do
     ClientFile="${OutDir}/${client}.out"
     ErrorMsg=""
+    CriticalErrorMsg=""
 
     # Go for the entire act log instead; if not, we will not get the infamous ANR2579E errors or the ANR2507I conclusion
     echo "$ActlogToday" | grep -Ei "\s$client[ \)]" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANE4042E" > "$ClientFile"
