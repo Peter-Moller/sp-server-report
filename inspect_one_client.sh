@@ -7,12 +7,12 @@
 # The plan is to instead have the user provide either POLICYDOMAIN och a SCHEDULE and then
 # get the client list from those and produce result accoringly.
 
-CLIENT=$1
-if [ -z "$CLIENT" ]; then
+client=$1
+if [ -z "$client" ]; then
     echo "No client slected. Exiting..."
     exit 1
 fi
-ClientFile="/tmp/${CLIENT}.out"
+ClientFile="/tmp/${client}.out"
 
 RANGE=$2
 if [ -z "$RANGE" ]; then
@@ -77,12 +77,12 @@ ScriptNameLocation() {
 }
 
 print_header() {
-    CommonHeader="${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T) (connected to server \"$ServerName\")"
+    CommonHeader="${ESC}${InvertColor}mBackup-report for client \"$client\" on $(date +%F" "%T) (connected to server \"$ServerName\")"
     if [ "$DaysBack" = " begintime=00:00:00" ]; then
-        #printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: today${Reset}\n"
+        #printf "${ESC}${InvertColor}mBackup-report for client \"$client\" on $(date +%F" "%T). Period: today${Reset}\n"
         printf "${CommonHeader}. Period: today${Reset}\n"
     else
-        #printf "${ESC}${InvertColor}mBackup-report for client \"$CLIENT\" on $(date +%F" "%T). Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
+        #printf "${ESC}${InvertColor}mBackup-report for client \"$client\" on $(date +%F" "%T). Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
         printf "${CommonHeader}. Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
     fi
     #printf "${ESC}${InvertColor}mContact: \"${ContactName:--none-}\". Node was registered ${NodeRegistered:--unknown-}. Policy Domain: ${PolicyDomain:--unknown-}. Cloptset: ${CloptSet:--unknown-}${Reset}\n"
@@ -95,13 +95,13 @@ print_header() {
 
 check_node_exists() {
     printf "..... making sure the client exists (1/5) ....."
-    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $CLIENT f=d")"
+    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $client f=d")"
     ClientES=$?
     ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
     #if [ $(echo "$ServerResponse" | grep -E "^ANS8002I" | awk '{print $NF}' | cut -d. -f1) -ne 0 ]; then
     if [ $ClientES -eq 11 ]; then
         printf "${ESC}48D"
-        echo "Client \"$CLIENT\" does not exist on server \"$ServerName\". Exiting..."
+        echo "Client \"$client\" does not exist on server \"$ServerName\". Exiting..."
         exit 1
     else
         ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ContactName='Peter M?ller'
@@ -109,7 +109,7 @@ check_node_exists() {
         NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*Registering Administrator:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                         # Ex: NodeRegisteredBy=ADMIN
         PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                        # Ex: PolicyDomain=PD_01
         CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                     # Ex: CloptSet=PD_01_OS_MACOS_2
-        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain node=$CLIENT" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
+        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
         ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"         # Ex: ScheduleStart=08:00:00
         ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')" # Ex: ScheduleDuration='+ 10 Hour(s)'
         # Store the data in ClientFile:
@@ -139,7 +139,7 @@ client_info() {
     esac
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
-    ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $CLIENT")"
+    ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $client")"
     ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
     ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}')"
     # Add the occupancy data to the ClientFile:
@@ -152,8 +152,8 @@ client_info() {
 # Do not include ANR2017I ('Administrator ADMIN issued command...')
 get_backup_data() {
     printf "..... gathering backup data (3/5) ....."
-    echo "Below are all entries in the TSM 'actlog' regarding \"$CLIENT\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
-    dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$CLIENT[ \)]" | grep -v "ANR2017I" >> $ClientFile
+    echo "Below are all entries in the TSM 'actlog' regarding \"$client\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
+    dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$client[ \)]" | grep -v "ANR2017I" >> $ClientFile
     printf "${ESC}40D"
 }
 
@@ -187,10 +187,21 @@ backup_result() {
     else
         BackupStatus="ERROR"
         LastSuccessfulBackup="$(grep -E "ANR2507I" $ClientFile | tail -1 | awk '{print $1" "$2}')"
+        # Get info of when the last backup was performed:
+        NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+        # Ex: NumDaysSinceLastBackupTemp='1
+        #     298
+        #     339'
+        # different way of doing this if we have one or more rows
+        if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
+            LastBackup="$NumDaysSinceLastBackupTemp"
+        else
+            LastBackup="$(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1)"
+        fi  
         if [ -n "$LastSuccessfulBackup" ]; then
             LastSuccessfulMessage="Last successful backup within the last $DaysBackRelative was: $LastSuccessfulBackup"
         else
-            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative (Last client access to the server was: $ClientLastAccess)"
+            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative (last completed backup was $LastBackup days ago)"
         fi
     fi
     printf "${ESC}41D"
@@ -221,7 +232,7 @@ print_line() {
     if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
         BackupStatus="Conflicted!!"
     fi
-    printf "$FormatStringConten\n" "$CLIENT" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
+    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
     if [ -n "$LastSuccessfulMessage" ]; then
         echo "$LastSuccessfulMessage"
     fi
