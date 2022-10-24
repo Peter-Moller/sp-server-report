@@ -86,7 +86,7 @@ print_header() {
         printf "${CommonHeader}. Period: last ${DaysBack/-/} day$([[ ${DaysBack/-/} -gt 1 ]] && echo "s")${Reset}\n"
     fi
     #printf "${ESC}${InvertColor}mContact: \"${ContactName:--none-}\". Node was registered ${NodeRegistered:--unknown-}. Policy Domain: ${PolicyDomain:--unknown-}. Cloptset: ${CloptSet:--unknown-}${Reset}\n"
-    printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered:$Reset ${NodeRegistered:--unknown-}.${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})\n"
+    printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered:$Reset ${NodeRegistered:--unknown-} (by ${NodeRegisteredBy:--unknown-}).${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})\n"
     echo
     #printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client name" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
     printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" "Backup" "Backup" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
@@ -106,6 +106,7 @@ check_node_exists() {
     else
         ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ContactName='Peter M?ller'
         NodeRegistered="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                              # Ex: NodeRegistered=2022-07-01
+        NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*Registering Administrator:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                         # Ex: NodeRegisteredBy=ADMIN
         PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                        # Ex: PolicyDomain=PD_01
         CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                     # Ex: CloptSet=PD_01_OS_MACOS_2
         Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule * node=$CLIENT" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
