@@ -42,13 +42,15 @@ ClientTotalSpaceUseMB_WH="%10s"
 ClientTotalSpaceUsedMB_W="%'10d"
 ClientTotalNumFile_WH="%11s"
 ClientTotalNumFiles_W="%'11d"
+ClientNumFilespaces_WH="%6s"
+ClientNumFilespaces_W="%'6d"
 ClientVersion_W="%-9s"
 ClientLastNetWork_W="%-18s"
 ClientOS_W="%-23s"
 ErrorMsg_W="%-60s"
 
-FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
-FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientNumFilespaces_WH}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
+FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientNumFilespaces_W}  ${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -89,8 +91,8 @@ print_header() {
     printf "${ESC}${ItalicFace}mContact:$Reset \"${ContactName:--none-}\".${ESC}${ItalicFace}m Node was registered by ${NodeRegisteredBy:--unknown-}:$Reset ${NodeRegistered:--unknown-}.${ESC}${ItalicFace}m Policy Domain:$Reset ${PolicyDomain:--unknown-}.${ESC}${ItalicFace}m Cloptset:$Reset ${CloptSet:--unknown-}.${ESC}${ItalicFace}m Schedule:$Reset ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})\n"
     echo
     #printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client name" "NumFiles" "Transferred" "Time" "Status" " ∑ files" "Total [MB]" "Version" "Client network" "Client OS" "Errors"
-    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" "Backup" "Backup" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
-    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "name" "of files" "transf." "elapsed" "date" "time" "status" " on server" "server" "version" "network" "operating system" "encountered"
+    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "Client " "Number" "Bytes" "Time" "Backup" "Backup" "Backup" "Sum" " ∑ files" "   Sum MB on" "Client" "Client" "Client" "Errors"
+    printf "${ESC}${BoldFace}m$FormatStringHeader${Reset}\n" "name" "of files" "transf." "elapsed" "date" "time" "status" "FS" " on server" "server" "version" "network" "operating system" "encountered"
 }
 
 check_node_exists() {
@@ -140,8 +142,9 @@ client_info() {
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $client")"
-    ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
-    ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | cut -d, -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}')"
+    ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | cut -d\. -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
+    ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | sed 's/[, ]//g' | awk '{ sum+=$1 } END {print sum}')"
+    ClientNumFilespaces=$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
     # Add the occupancy data to the ClientFile:
     echo "$ClientOccupancy" >> $ClientFile
     echo "" >> $ClientFile
@@ -188,20 +191,25 @@ backup_result() {
         BackupStatus="ERROR"
         LastSuccessfulBackup="$(grep -E "ANR2507I" $ClientFile | tail -1 | awk '{print $1" "$2}')"
         # Get info of when the last backup was performed:
-        NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
-        # Ex: NumDaysSinceLastBackupTemp='1
+        LastBackupNumDaysTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+        # Ex: LastBackupNumDaysTemp='1
         #     298
         #     339'
+        LastBackupDate="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Last Backup Completion Date/Time:" | cut -d: -f2 | awk '{print $1}' | sort -V | sort --field-separator='/' -k 3,3 -k 2,2 -k 1,1 | uniq)"
+        # Ex: LastBackupDate='09/23/17
+        #     01/05/20
+        #     04/12/21
+        #     10/17/22'
         # different way of doing this if we have one or more rows
-        if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
-            LastBackup="$NumDaysSinceLastBackupTemp"
+        if [ $(echo "$LastBackupNumDaysTemp" | wc -l) -eq 1 ]; then
+            LastBackupNumDays="$LastBackupNumDaysTemp"
         else
-            LastBackup="$(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1)"
+            LastBackupNumDays="$(echo "$LastBackupNumDaysTemp" | head -1) - $(echo "$LastBackupNumDaysTemp" | tail -1)"
         fi  
         if [ -n "$LastSuccessfulBackup" ]; then
             LastSuccessfulMessage="Last successful backup within the last $DaysBackRelative was: $LastSuccessfulBackup"
         else
-            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative (last completed backup was $LastBackup days ago)"
+            LastSuccessfulMessage="No successful backup was found within the last $DaysBackRelative (last completed backup was $LastBackupNumDays days ago - $LastBackupDate)"
         fi
     fi
     printf "${ESC}41D"
@@ -232,7 +240,7 @@ print_line() {
     if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
         BackupStatus="Conflicted!!"
     fi
-    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "$ClientTotalSpaceUsedMB" "$ClientTotalNumFiles" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
+    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "${ClientNumFilespaces:-0}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
     if [ -n "$LastSuccessfulMessage" ]; then
         echo "$LastSuccessfulMessage"
     fi
