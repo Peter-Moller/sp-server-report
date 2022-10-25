@@ -198,17 +198,22 @@ backup_result() {
             # Update 2022-10-23: I now know how to get the last date of backup: 
             # Do a 'query filespace $client f=d' and look for "Days Since Last Backup Completed:"
             # Note that it will be one day per filespace (file system)
-            NumDaysSinceLastBackupTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
-            # Ex: NumDaysSinceLastBackupTemp='1
+            NumDaysSinceLastBackup="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+            # Ex: NumDaysSinceLastBackup='1
             #     298
             #     339'
+            LastBackupDate="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Last Backup Completion Date/Time:" | cut -d: -f2 | awk '{print $1}' | sort -V | sort --field-separator='/' -k 3,3 -k 2,2 -k 1,1 | uniq)"
+            # Ex: LastBackupDate='09/23/17
+            #     01/05/20
+            #     04/12/21
+            #     10/17/22'
             # different way of doing this if we have one or more rows
-            if [ $(echo "$NumDaysSinceLastBackupTemp" | wc -l) -eq 1 ]; then
-                BackupStatus="$NumDaysSinceLastBackupTemp days ago"
-                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!!!; "
+            if [ $(echo "$NumDaysSinceLastBackup" | wc -l) -eq 1 ]; then
+                BackupStatus="$NumDaysSinceLastBackup days ago"
+                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!! Last complete backup was $LastBackupDate"
             else
-                BackupStatus="$(echo "$NumDaysSinceLastBackupTemp" | head -1) - $(echo "$NumDaysSinceLastBackupTemp" | tail -1) days ago"
-                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!!!; "
+                BackupStatus="$(echo "$NumDaysSinceLastBackup" | head -1) - $(echo "$NumDaysSinceLastBackup" | tail -1) days ago"
+                CriticalErrorMsg="CRITICAL: BACKUP IS NOT WORKING!! Last complete backup was between $(echo "$LastBackupDate" | head -1) and $(echo "$LastBackupDate" | tail -1)"
             fi
         fi
     fi
