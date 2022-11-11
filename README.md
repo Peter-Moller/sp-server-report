@@ -74,6 +74,7 @@ A number of data points are specified:
   * State: successful or not. If the client hasn’t had any communication with the server in >30 days, a special warning about that is given
   * Physical Space Occupied on the server (in total)
   * Number of Files on the server (in total)
+  * Number of filespaces on the client
   * Version of the client software on the client computer
   * From what network the last client access occurred
   * What operating system the client is using
