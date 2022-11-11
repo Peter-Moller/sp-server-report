@@ -156,7 +156,7 @@ backup_result() {
     # (also, note that some machines will have more than one line of reporting. We only consider the last one)
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"     # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
-    BackedupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                              # Ex: BackedupElapsedtime='00:46:10'
+    BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                              # Ex: BackedupElapsedtime='00:46:10'
     # So, did it end successfully (ANR2507I)?
     if [ -n "$(grep ANR2507I $ClientFile)" ]; then
         BackupStatus="Successful"
