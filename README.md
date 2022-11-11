@@ -51,9 +51,17 @@ Example:
 
 ### inspect\_all\_clients.sh
 
-Currently, the script is a bit of a hack. The plan is to provide a policy domain as argument and then inspect all clients in that domain. Reports are sent via email to `$Recipient` (specified in `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`).
+This script takes as argument a space separated list of one or more policy domains and builds a list of clients that are associated with those domains.  
+This list of clients is traversed and information (specified below) is gathered.
 
-The report itself will, however, not change. Given a list of clients, it traverse that list and generate a table like report as in this example:
+If a given domain is not valid, it will be noticded as such. If a client is present in multiple domains, it will be processed only once. The list of clients is processed alphabetically. 
+
+The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`, containing the following:  
+`export ID=_admin-username_`  
+`export PWD=_admin-password_`  
+`RECIPIENT="peter.moller@cs.lth.se,anders.bruce@cs.lth.se"`  
+
+The generated report will look as in this example:
 
 ![examples of inspect_all_clients](examples_of_inspect_all_clients.jpg)
 
