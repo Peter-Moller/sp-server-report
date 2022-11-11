@@ -144,9 +144,13 @@ client_info() {
     ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $client")"
     ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | cut -d\. -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
     ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | sed 's/[, ]//g' | awk '{ sum+=$1 } END {print sum}')"
-    ClientNumFilespaces=$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
+    ClientFilespaces="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query filespace $client f=d")"
+    ClientNumFilespaces=$(echo "$ClientFilespaces" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
     # Add the occupancy data to the ClientFile:
     echo "$ClientOccupancy" >> $ClientFile
+    # Add filespace information to the ClientFile
+    echo "" >> $ClientFile
+    echo "$ClientFilespaces" >> $ClientFile
     echo "" >> $ClientFile
     printf "${ESC}40D"
 }
