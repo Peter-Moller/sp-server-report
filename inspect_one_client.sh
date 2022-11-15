@@ -97,7 +97,7 @@ print_header() {
 
 check_node_exists() {
     printf "..... making sure the client exists (1/5) ....."
-    ClientInfo="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query node $client f=d")"
+    ClientInfo="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query node $client f=d")"
     ClientES=$?
     ServerName="$(echo "$ClientInfo" | grep -E "^Session established with server" | cut -d: -f1 | awk '{print $NF}')"
     #if [ $(echo "$ServerResponse" | grep -E "^ANS8002I" | awk '{print $NF}' | cut -d. -f1) -ne 0 ]; then
@@ -111,9 +111,9 @@ check_node_exists() {
         NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*Registering Administrator:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                         # Ex: NodeRegisteredBy=ADMIN
         PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                        # Ex: PolicyDomain=PD_01
         CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                     # Ex: CloptSet=PD_01_OS_MACOS_2
-        Schedule="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
-        ScheduleStart="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"         # Ex: ScheduleStart=08:00:00
-        ScheduleDuration="+ $(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')" # Ex: ScheduleDuration='+ 10 Hour(s)'
+        Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"       # Ex: Schedule=DAILY_10
+        ScheduleStart="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"         # Ex: ScheduleStart=08:00:00
+        ScheduleDuration="+ $(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')" # Ex: ScheduleDuration='+ 10 Hour(s)'
         # Store the data in ClientFile:
         echo "$ClientInfo" > $ClientFile
         echo "" >> $ClientFile
@@ -141,10 +141,10 @@ client_info() {
     esac
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
-    ClientOccupancy="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query occupancy $client")"
+    ClientOccupancy="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query occupancy $client")"
     ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | cut -d\. -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
     ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | sed 's/[, ]//g' | awk '{ sum+=$1 } END {print sum}')"
-    ClientFilespaces="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt "query filespace $client f=d")"
+    ClientFilespaces="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query filespace $client f=d")"
     ClientNumFilespaces=$(echo "$ClientFilespaces" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
     # Add the occupancy data to the ClientFile:
     echo "$ClientOccupancy" >> $ClientFile
@@ -160,7 +160,7 @@ client_info() {
 get_backup_data() {
     printf "..... gathering backup data (3/5) ....."
     echo "Below are all entries in the TSM 'actlog' regarding \"$client\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
-    dsmadmc -id=$id -password=$pwd -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$client[ \)]" | grep -v "ANR2017I" >> $ClientFile
+    dsmadmc -id=$ID -password=$PASSWORD -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$client[ \)]" | grep -v "ANR2017I" >> $ClientFile
     printf "${ESC}40D"
 }
 
@@ -195,11 +195,11 @@ backup_result() {
         BackupStatus="ERROR"
         LastSuccessfulBackup="$(grep -E "ANR2507I" $ClientFile | tail -1 | awk '{print $1" "$2}')"
         # Get info of when the last backup was performed:
-        LastBackupNumDaysTemp="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
+        LastBackupNumDaysTemp="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Days Since Last Backup Completed:" | cut -d: -f2 | sed 's/[, <]//g' | sort -u)"
         # Ex: LastBackupNumDaysTemp='1
         #     298
         #     339'
-        LastBackupDate="$(dsmadmc -id=$id -password=$pwd -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Last Backup Completion Date/Time:" | cut -d: -f2 | awk '{print $1}' | sort -V | sort --field-separator='/' -k 3,3 -k 2,2 -k 1,1 | uniq)"
+        LastBackupDate="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt  "query filespace $client f=d" | grep -E "^\s*Last Backup Completion Date/Time:" | cut -d: -f2 | awk '{print $1}' | sort -V | sort --field-separator='/' -k 3,3 -k 2,2 -k 1,1 | uniq)"
         # Ex: LastBackupDate='09/23/17
         #     01/05/20
         #     04/12/21
