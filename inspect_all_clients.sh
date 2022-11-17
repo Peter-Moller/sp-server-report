@@ -260,7 +260,7 @@ print_line() {
     if [ -n "$CriticalErrorMsg" ]; then
         ErrorMsg="$CriticalErrorMsg"
     fi
-    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "${ClientNumFilespaces:-0}" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
+    LC_NUMERIC=en_US printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "${BackupStatus/ERROR/- NO BACKUP -}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "${ClientNumFilespaces:-0}" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }" >> $ReportFile
 }
 
 
