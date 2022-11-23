@@ -139,13 +139,18 @@ client_info() {
     fi
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2-)"     # Ex: ClientLastAccess='2018-11-01   11:39:06'
-    ClientTotalSpaceTemp="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client" | grep "Physical Space Occupied" | cut -d: -f2 | sed 's/ -/0/' | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"  # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
-    ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                                                      # Ex: ClientTotalSpaceUsedMB=1502702
-    ClientTotalNumfilesTemp="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client" | grep "Number of Files" | cut -d: -f2 | sed 's/ -/0/' | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"       # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
-    ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                                      # Ex: ClientTotalNumFiles=1502702
-    # The following is no longer used since it's A) wrong and B) awk summaries in scientific notation which is not desirable. Kept here for some reason...
-    #ClientTotalSpaceUsedMB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client" | awk '/Physical Space Occupied/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
-    #ClientTotalNumFiles="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client" | awk '/Number of Files/ {print $NF}' | sed 's/,//' | awk '{ sum+=$1 } END {print sum}')"
+    ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client")"
+    # Deal with clients who are using deduplication.
+    # (If they are, the server does only present the 'Logical Space Occupied' number since it actually cannot determine the physical space occupied)
+    if [ -z "$(echo "$ClientOccupancy" | grep "Physical Space Occupied" | cut -d: -f2 | grep -o '-')" ]; then
+        OccupiedPhrase="Physical Space Occupied"
+    else
+        OccupiedPhrase="Logical Space Occupied"
+    fi
+    ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"              # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
+    ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalSpaceUsedMB=1502702
+    ClientTotalNumfilesTemp="$(eco "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"            # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
+    ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalNumFiles=1502702
     # Get the number of file spaces on the client
     ClientNumFilespaces=$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
 }
@@ -154,9 +159,9 @@ backup_result() {
     # Number of files:
     # (note that some client use a unicode 'non breaking space', e280af, as thousands separator. This must be dealt with!)
     # (also, note that some machines will have more than one line of reporting. We only consider the last one)
-    BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"     # Ex: BackedupNumfiles='3483'
-    TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"               # Ex: TransferredVolume='1,010.32 MB'
-    BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                              # Ex: BackedupElapsedtime='00:46:10'
+    BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed -e 's/,//g' | tail -1)"  # Ex: BackedupNumfiles='3483'
+    TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed -e 's/\ *//' | tail -1)"            # Ex: TransferredVolume='1,010.32 MB'
+    BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                            # Ex: BackedupElapsedtime='00:46:10'
     # So, did it end successfully (ANR2507I)?
     if [ -n "$(grep ANR2507I $ClientFile)" ]; then
         BackupStatus="Successful"
