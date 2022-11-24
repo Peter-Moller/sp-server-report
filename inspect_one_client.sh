@@ -142,8 +142,17 @@ client_info() {
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     ClientOccupancy="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query occupancy $client")"
-    ClientTotalSpaceUsedMB="$(echo "$ClientOccupancy" | grep -E  "^\s*Physical Space Occupied" | cut -d: -f2 | sed 's/,//g' | cut -d\. -f1 | sed 's/ //g' | awk '{ sum+=$1 } END {print sum}' | cut -d. -f1)"
-    ClientTotalNumFiles="$(echo "$ClientOccupancy" | grep -E  "^\s*Number of Files" | cut -d: -f2 | sed 's/[, ]//g' | awk '{ sum+=$1 } END {print sum}')"
+    # Deal with clients who are using deduplication.
+    # (If they are, the server does only present the 'Logical Space Occupied' number since it actually cannot determine the physical space occupied)
+    if [ -z "$(echo "$ClientOccupancy" | grep "Physical Space Occupied" | cut -d: -f2 | grep -o '-')" ]; then
+        OccupiedPhrase="Physical Space Occupied"
+    else
+        OccupiedPhrase="Logical Space Occupied"
+    fi
+    ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"              # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
+    ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalSpaceUsedMB=1502702
+    ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"           # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
+    ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalNumFiles=1502702
     ClientFilespaces="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query filespace $client f=d")"
     ClientNumFilespaces=$(echo "$ClientFilespaces" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
     # Add the occupancy data to the ClientFile:
