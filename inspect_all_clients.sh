@@ -149,7 +149,7 @@ client_info() {
     fi
     ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"              # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
     ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalSpaceUsedMB=1502702
-    ClientTotalNumfilesTemp="$(eco "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"            # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
+    ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"            # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
     ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalNumFiles=1502702
     # Get the number of file spaces on the client
     ClientNumFilespaces=$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
