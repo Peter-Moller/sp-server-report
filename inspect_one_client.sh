@@ -253,7 +253,7 @@ print_line() {
     if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
         BackupStatus="Conflicted!!"
     fi
-    printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "${ClientNumFilespaces:-0}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
+    LC_NUMERIC=en_US printf "$FormatStringConten\n" "$client" "$BackedupNumfiles" "$TransferredVolume" "$BackeupElapsedtime" "$LastFinishDate" "$LastFinishTime" "${BackupStatus/ERROR/NO BACKUP FOUND}" "${ClientNumFilespaces:-0}" "$ClientTotalNumFiles" "$ClientTotalSpaceUsedMB" "$ClientVersion" "$ClientLastNetwork" "$ClientOS" "${ErrorMsg%; }"
     if [ -n "$LastSuccessfulMessage" ]; then
         echo "$LastSuccessfulMessage"
     fi
