@@ -98,6 +98,7 @@ check_node_exists() {
         exit 1
     else
         ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ContactName='Peter M?ller'
+        ContactEmail="$(echo "$ClientInfo" | grep -E "^\s*Email Address:" | cut -d: -f2 | sed 's/^ *//')"                                                                             # Ex: ContactEmail='peter.moller@cs.lth.se'
         NodeRegisteredDate="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                          # Ex: NodeRegistered=2022-07-01
         if [ "$(echo "$NodeRegisteredDate" | cut -c3,6)" = "//" ]; then
             NodeRegisteredDate="20${NodeRegisteredDate:6:2}-${NodeRegisteredDate:0:2}-${NodeRegisteredDate:3:2}"
@@ -240,6 +241,7 @@ print_client_info()
 {
     printf "${ESC}${BoldFace}mInformation about the node:${Reset}             \n"
     printf "$FormatStringVertical" "Contact:" " $ContactName"
+    printf "$FormatStringVertical" "Email address:" " $ContactEmail"
     printf "$FormatStringVertical" "Node registered by:" " ${NodeRegisteredBy:--unknown-} on ${NodeRegisteredDate:--unknown-}"
     printf "$FormatStringVertical" "Policy Domain:" " ${PolicyDomain:--unknown-}"
     printf "$FormatStringVertical" "Cloptset:" " ${CloptSet:--unknown-}"
@@ -280,8 +282,8 @@ print_result() {
 
     # Print info about the client on the server
     printf "${ESC}${BoldFace}mClient usage of server resources:${Reset}\n"
-    FormatStrOccup="%-20s%4d%-7s%'13d%'17d       %-10s%'10d"
-    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   Type    Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
+    FormatStrOccup="%-20s%4d%-10s%'13d%'17d       %-10s%'10d"
+    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   Type       Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
     for fsid in $FSIDs
     do
         FSName=""
