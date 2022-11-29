@@ -151,7 +151,7 @@ client_info() {
     if [ "$(echo "$ClientLastAccess" | cut -c3,6)" = '//' ]; then
         ClientLastAccessDate="20${ClientLastAccess:6:2}-${ClientLastAccess:0:2}-${ClientLastAccess:3:2}"
     else
-        ClientLastAccessDate="${ClientLastAccess:0:9}"
+        ClientLastAccessDate="${ClientLastAccess:0:10}"
     fi
     ClientLastAccessTime="$(echo "$ClientLastAccess" | awk '{print $NF}')"
     ClientLastAccess="$ClientLastAccessDate $ClientLastAccessTime"
