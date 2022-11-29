@@ -134,6 +134,9 @@ client_info() {
         "130.235.17" ) ClientLastNetwork="CS server net" ;;
         "10.0.16"    ) ClientLastNetwork="CS client net" ;;
     esac
+    if [ -z "$ClientLastNetwork" ]; then
+        ClientLastNetwork="$ClientLastNetworkTemp"
+    fi
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*Transport Method:" | cut -d: -f2 | sed 's/^ *//')"
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
@@ -162,6 +165,7 @@ client_info() {
     ClientFilespaces="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query filespace $client f=d")"
     ClientNumFilespacesOnServer=$(echo "$ClientOccupancy" | grep -cE "^\s*Filespace Name:")                                                    # Ex: ClientNumFilespacesOnServer=8
     ClientFileSpacesNames="$(echo "$ClientFilespaces" | grep -E "^\s*Filespace Name:" | cut -d: -f2 | tr '\n' ',')"                            # Ex: ClientFileSpacesNames=' /, /data, /home, /boot,'
+    ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*Backup Delete Allowed\?:" | cut -d: -f2 | sed 's/^ *//')"
     # Add the occupancy data to the ClientFile:
     echo "$ClientOccupancy" >> $ClientFile
     # Add filespace information to the ClientFile
@@ -248,6 +252,7 @@ print_client_info()
     printf "$FormatStringVertical" "Schedule:" " ${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})"
     printf "$FormatStringVertical" "Transport Method:" " ${TransportMethod:-unknown}"
     printf "$FormatStringVertical" "Connected to Server:" " ${ServerName:--}"
+    printf "$FormatStringVertical" "Can delete backup:" " ${ClientCanDeleteBackup}"
     printf "$FormatStringVertical" "Client version:" " $ClientVersion"
     printf "$FormatStringVertical" "Client OS:" " $ClientOS"
     printf "$FormatStringVertical" "Client last access:" " ${ClientLastAccess:-no info}"
@@ -275,15 +280,14 @@ print_result() {
     printf "$FormatStringVerticalNumeric" "Nbr. files:" " ${BackedupNumfiles:-0}"
     printf "$FormatStringVertical" "Bytes transferred:" " $TransferredVolume"
     printf "$FormatStringVertical" "Time elapsed:" " $BackeupElapsedtime"
-    printf "$FormatStringVertical" "Backup date:" " $LastFinishDate"
-    printf "$FormatStringVertical" "Backup time:" " $LastFinishTime"
+    printf "$FormatStringVertical" "Backup time:" " $LastFinishDate $LastFinishTime"
     printf "$FormatStringVertical" "Errors encountered:" " ${ErrorMsg%; }"
     echo
 
     # Print info about the client on the server
     printf "${ESC}${BoldFace}mClient usage of server resources:${Reset}\n"
     FormatStrOccup="%-20s%4d%-10s%'13d%'17d       %-10s%'10d"
-    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   Type       Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
+    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   FS-type       Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
     for fsid in $FSIDs
     do
         FSName=""
