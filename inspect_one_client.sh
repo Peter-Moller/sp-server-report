@@ -54,7 +54,7 @@ ErrorMsg_W="%-60s"
 FormatStringHeader="${Client_W}${BackedupNumfiles_H}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientNumFilespaces_WH}  ${ClientTotalNumFile_WH}  ${ClientTotalSpaceUseMB_WH}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 FormatStringConten="${Client_W}${BackedupNumfiles_W}${TransferredVolume_W}  ${BackeupElapsedtime_W}${BackupDate_W}${BackupTime_W}${BackupStatus_W}${ClientNumFilespaces_W}  ${ClientTotalNumFiles_W}  ${ClientTotalSpaceUsedMB_W}  ${ClientVersion_W}${ClientLastNetWork_W}${ClientOS_W}${ErrorMsg_W}"
 FormatStringVertical="${ESC}${ItalicFace}m%22s${Reset}%-40s\n"
-FormatStringVerticalNumeric="${ESC}${ItalicFace}m%22s${Reset}%'10d\n"
+FormatStringVerticalNumeric="${ESC}${ItalicFace}m%22s${Reset} %-'10d\n"
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -118,8 +118,8 @@ check_node_exists() {
 
 client_info() {
     printf "..... gathering client info (2/5) ....."
-    ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed -e 's/ Version //' -e 's/, release /./' -e 's/, level /./' | cut -d. -f1-3)"   # Ex: ClientVersion='8.1.13'
-    ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed -e 's/^ //')"                                                         # Ex: ClientLastNetworkTemp='10.7.58.184'
+    ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed -e 's/ Version //' -e 's/, release /./' -e 's/, level /./')"   # Ex: ClientVersion='8.1.13'
+    ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed -e 's/^ //')"                                         # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
         "130.235") ClientLastNetwork="LU" ;;
         "10.4")    ClientLastNetwork="Static VPN" ;;
@@ -140,6 +140,22 @@ client_info() {
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*Transport Method:" | cut -d: -f2 | sed 's/^ *//')"
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
+    if [ "$ClientOS" = "Macintosh" ]; then
+        ClientOSLevel="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2 | sed 's/^\ //')"                                  # Ex: ClientOSLevel='10.16.0'
+        # Get a full name for the version (see https://en.wikipedia.org/wiki/Darwin_(operating_system)):
+        case "${ClientOSLevel:0:5}" in
+            10.10) ClientOS="OS X ${ClientOSLevel} “Yosemite”" ;;
+            10.11) ClientOS="OS X ${ClientOSLevel} “El Capitan”" ;;
+            10.12) ClientOS="macOS ${ClientOSLevel} “Sierra”" ;;
+            10.13) ClientOS="macOS ${ClientOSLevel} “High Sierra”" ;;
+            10.14) ClientOS="macOS ${ClientOSLevel} “Mojave”" ;;
+            10.15) ClientOS="macOS ${ClientOSLevel} “Catalina”" ;;
+            11.*) ClientOS="macOS ${ClientOSLevel} “Big Sur”" ;;
+            12.*) ClientOS="macOS ${ClientOSLevel} “Monterey”" ;;
+            10.16) ClientOS="macOS ${ClientOSLevel} “Ventura”" ;;
+            *) ClientOS="macOS ($ClientOSLevel)" ;;
+        esac
+    fi
     ClientOccupancy="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query occupancy $client")"
     # Get the file space IDs:
     FSIDs="$(echo "$ClientOccupancy" | grep -E "^\s*FSID:" | cut -d: -f2 | tr '\n' ' ')"                                                       # Ex: FSIDs=' 2  1 '
@@ -287,7 +303,7 @@ print_result() {
     # Print info about the client on the server
     printf "${ESC}${BoldFace}mClient usage of server resources:${Reset}\n"
     FormatStrOccup="%-20s%4d%-10s%'13d%'17d       %-10s%'10d"
-    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   FS-type       Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
+    printf "${ESC}${UnderlineFace}mFilespace Name      FSID   Type       Nbr files   Space Occupied [MB]  Last backup  (Days ago)${Reset}\n"
     for fsid in $FSIDs
     do
         FSName=""
