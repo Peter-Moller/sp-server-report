@@ -44,8 +44,9 @@ More specifically: the output from `query node`, `query occupancy` and `query ac
 
 -----
 
-Example:  
-![examples of inspect_one_client](examples_of_inspect_one_client.jpg)
+Examples:  
+![examples of inspect_one_client](examples_of_inspect_one_client_1v.png)  
+![examples of inspect_one_client](examples_of_inspect_one_client_2v.png)
 
 -----
 
