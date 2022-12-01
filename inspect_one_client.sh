@@ -221,12 +221,12 @@ backup_result() {
         LastFinishDate="$LastFinishDateTemp"
     fi
     LastFinishTime="$(grep -E "ANR2507I|ANR2579E" $ClientFile | tail -1 | awk '{print $2}')"                                                                                                # Ex: LastFinishTime=12:34:01
-    # Dual Execution?
-    if [ -n "$(grep ANE4961I $ClientFile | awk '{print $1" "$3}' | uniq -d)" ]; then
-        ErrorMsg="Dual executions (plz investigate); "
-    else
-        ErrorMsg=""
-    fi
+    ## Dual Execution?
+    #if [ -n "$(grep ANE4961I $ClientFile | awk '{print $1" "$3}' | uniq -d)" ]; then
+        #ErrorMsg="Dual executions (plz investigate); "
+    #else
+        #ErrorMsg=""
+    #fi
 
     # So, did it end successfully?
     if [ -n "$(grep ANR2507I $ClientFile | grep "completed successfully" | tail -1)" ]; then
