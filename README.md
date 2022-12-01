@@ -19,25 +19,38 @@ First, the script looks for the client and warns if it isn’t found. After that
 
 The following is presented about the client:
 
-  * Client name, timestamp from when the script is run, name of the TSM server and specification for time period (if any)
-  * Contact Name
-  * When the client was registered
-  * What Policy Domain it belongs to
-  * What Client Option Set (“cloptset”) is used
-  * What Schedule is active and duration of that schedule
-
-The following is presented about the history of the client for the given time period (apart from the client name):
-
-  * Number of files, bytes transferred and time elapsed for the latest backup  
+  * Client name, timestamp from when the script is run and specification for time period (if any)
+  * Information about the node
+    * Contact
+    * email address
+    * when, and by whom, the node was registered
+    * policy domain
+    * cloptset
+    * schedule
+    * transport method
+    * name of the TSM server
+    * info if the client can delete it's backups
+    * client version
+    * client OS
+    * date and time for last client access
+    * from what network the client communicated
+  * information about the backup for the specified time period
+    * Status of the backup: if it was successful (`ANR2507I`) or not. If no backup is found, the text “NO BACKUP FOUND” is presented. If the backup has concluded but no `ANR2507I` because of a `ANR2579E (return code 12)`, the text “Conflicted” is presented
+    * Number of files, bytes transferred and time elapsed for the latest backup  
 (based on `ANE4954I`, `ANE4961I` and `ANE4964I` respectively)
-  * Status of the backup: if it was successful (`ANR2507I`) or not. If no backup is found, the text “NO BACKUP FOUND” is presented. If the backup has concluded but no `ANR2507I` because of a `ANR2579E (return code 12)`, the text “Conflicted” is presented
-  * Total number of files and physical space occupied on the server (from `query occupancy`)
-  * Date and time of the last backup (successful or not)  
+    * Total number of files and physical space occupied on the server (from `query occupancy`)
+    * Date and time of the last backup (successful or not)  
 _if a successful backup (`ANR2507I`)was not found during the selected time, it will be highlighted_
-  * Version of the client software
-  * Operating system on the client
-  * Errors encoutered during the backup period
-  * File names with unrecognized characters are reported separately
+    * Time elapsed for the last backup
+    * Errors encoutered during the backup period
+    * File names with unrecognized characters are reported separately
+  * client usage of server resources for all file spaces that are present on the server is reported with the following details:
+    * Filespace name
+    * FSID
+    * File system type
+    * Number of files
+    * Space occupied (physical space occupied; logical space is used idf deduplication is used)
+    * Last backup, both date and number of days ago
 
 The details from the run is stored in `/tmp/CLIENTNAME.out`.  
 More specifically: the output from `query node`, `query occupancy` and `query actlog` are stored in this file, while `query association` and `query schedule` are _not_. 
