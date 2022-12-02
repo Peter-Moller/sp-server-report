@@ -74,7 +74,7 @@ if [ ! -d $OutDir ]; then
 fi
 ReportFile="${OutDirPrefix}/${SELECTION// /+}_${Today}"  # Ex: ReportFile='/tmp/tsm/cs_servers+cs_clients_2022-11-11'
 
-Client_W="%-13s"
+Client_W="%-15s"
 BackedupNumfiles_H="%11s"
 BackedupNumfiles_W="%'11d"
 TransferredVolume_W="%13s"
