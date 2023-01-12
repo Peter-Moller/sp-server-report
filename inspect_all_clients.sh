@@ -39,8 +39,6 @@ fi
 for DOMAIN in $SELECTION; do
     # Test if the domain exists
     if dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query domain $DOMAIN" &>/dev/null; then
-        Explanation+="“$DOMAIN” ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $DOMAIN" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')) & "
-        # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
         CLIENTStmp+="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "query node * domain=$DOMAIN" | grep -E "^\s*Node Name:" | awk '{print $NF}')"
         # Ex: CLIENTStmp+='CS-ABRUCE
         #                  CS-DRIFTPC
@@ -48,10 +46,14 @@ for DOMAIN in $SELECTION; do
         #                  CS-PMOLINUX
         #                  CS-TEST'
         CLIENTStmp+=$'\n'
+        NumClientsTmp=$(echo "$CLIENTStmp" | sort -u | tr '\n' " " | wc -w)  # Ex: NumClients=5
+        Explanation+="“$DOMAIN” ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $DOMAIN" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'); $NumClientsTmp nodes) & "
+        # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
         Explanation+="Non-existing policy domain: $DOMAIN & "
     fi
 done
+
 CLIENTS="$(echo "$CLIENTStmp" | sort -u | tr '\n' " ")"  # Ex: CLIENTS='CS-ABRUCE CS-DRIFTPC CS-PETERMAC CS-PMOLINUX CS-TEST '
 
 # Exit if the list is empty
