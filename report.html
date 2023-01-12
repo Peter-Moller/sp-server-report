@@ -1,0 +1,133 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Backuprapport for cs_servers</title>
+    <style type="text/css" media="screen">
+  * {
+    margin: 0px 0px 0px 0px;
+    padding: 0px 0px 0px 0px;
+  }
+
+  body, html {
+    padding: 3px 3px 3px 3px;
+    background-color: #D8DBE2;
+    font-family: Frutiger, Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    text-align: center;
+  }
+
+  div.main_page {
+    position: relative;
+    display: table;
+    margin-bottom: 3px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 10px 30px 10px 30px;
+    border-width: 0px;
+    border-color: #212738;
+    border-style: solid;
+    background-color: #FFFFFF;
+    text-align: center;
+  }
+
+  # CS
+	table { table-layout: fixed; width: 100%; border-collapse: collapse; border: 3px solid purple; }
+		#jobe { border-collapse: collapse; width: 100%; spacing: 0px; }
+		#jobe td { border: 1px solid #ddd; padding: 4px; }
+		#jobe th { color: white; padding: 4px; text-align: center; background-color: #000080; cursor: pointer; }
+		#jobe tr:nth-child(even) {background-color: white; color: black; }
+		#jobe tr:nth-child(odd) {background-color: #EBEBEB; }
+		#jobe tr:hover {background-color: #9c6114; color: white }
+    </style>
+    <script type="text/javascript">
+      	function sortTable(n) 
+      	{
+      		  var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+				  	table = document.getElementById("jobe");
+					  switching = true;
+					  // Set the sorting direction to ascending:
+					  dir = "asc"; 
+					  /* Make a loop that will continue until no switching has been done: */
+					  while (switching) 
+				  	{
+				  		  // Start by saying: no switching is done:
+				    		switching = false;
+						    rows = table.rows;
+						    /* Loop through all table rows (except the first, which contains table headers): */
+						    for (i = 1; i < (rows.length - 1); i++) 
+						    {
+							      // Start by saying there should be no switching:
+							      shouldSwitch = false;
+							      /* Get the two elements you want to compare, one from current row and one from the next: */
+						  	    x = rows[i].getElementsByTagName("TD")[n];
+						    	  y = rows[i + 1].getElementsByTagName("TD")[n];
+					  		    /* Check if the two rows should switch place, based on the direction, asc or desc: */
+					    		  if (dir == "asc") 
+					    		  {
+						      		  if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase())
+						      		  {
+									          // If so, mark as a switch and break the loop:
+									          shouldSwitch = true;
+					    				      break;
+				  	    	  		}
+				    	  		} 
+						      	else if (dir == "desc") 
+						      	{
+						        		if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) 
+						        		{
+									          // If so, mark as a switch and break the loop:
+									          shouldSwitch = true;
+				    					      break;
+				      		  		}
+				      			}
+						    }
+						    if (shouldSwitch) 
+						    {
+						    	  /* If a switch has been marked, make the switch and mark that a switch has been done: */
+						      	rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+							      switching = true;
+					  		    // Each time a switch is done, increase this count by 1:
+					    		  switchcount ++; 
+					    	} else 
+						    {
+						    	  /* If no switching has been done AND the direction is "asc", set the direction to "desc" and run the while loop again. */
+						      	if (switchcount == 0 && dir == "asc") 
+						      	{
+						        		dir = "desc";
+								        switching = true;
+				    		  	}
+						    }
+					  }
+			}
+			</script>
+  </head>
+  <body>
+    <div class="main_page">
+      <h1> REPORT_H1_HEADER </h1>
+      <p>&nbsp;</p>
+      <p align="left">REPORT_HEAD</p>
+      <p align="left">&nbsp;</p>
+      <table id="jobe">
+		<tr>
+		  <th onclick="sortTable(0)">Client</th>
+		  <th align="right" onclick="sortTable(1)">Files</th>
+		  <th onclick="sortTable(2)">Transferred</th>
+		  <th onclick="sortTable(3)">Duration</th>
+		  <th onclick="sortTable(4)">Status</th>
+		  <th onclick="sortTable(5)">Client network</th>
+		  <th align="right" onclick="sortTable(6)">∑ files</th>
+		  <th align="right" onclick="sortTable(7)">Total [MB]</th>
+		  <th align="right" onclick="sortTable(8)"># FS</th>
+	  	  <th onclick="sortTable(9)">Version</th>
+		  <th onclick="sortTable(10)">Client OS</th>
+		  <th onclick="sortTable(11)">Errors</th>
+		</tr>
+      </table>
+      <p>&nbsp;</p>
+      <p align="left"><i>REPORT_END</i></p>
+      <p align="left"><i>This report is generated once per day.</i></p>
+      <p align="left">Link to main backup documentation site for CS: <a href="https://lthin.lth.lu.se/internt/cs/it-stod/backup.html">https://lthin.lth.lu.se/internt/cs/it-stod/backup.html</a></p>
+    </div>
+  </body>
+</html>
