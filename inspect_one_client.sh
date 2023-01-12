@@ -127,16 +127,17 @@ client_info() {
         "10.8")    ClientLastNetwork="eduroam (stud.)" ;;
         "10.9")    ClientLastNetwork="eduroam (other)" ;;
         "" )       ClientLastNetwork="Unknown" ;;
-        * )        ClientLastNetwork="outside LU" ;;
+        #* )        ClientLastNetwork="outside LU" ;;
+        * )        ClientLastNetwork="$ClientLastNetworkTemp" ;;
     esac
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-3)" in
         "130.235.16" ) ClientLastNetwork="CS server net" ;;
         "130.235.17" ) ClientLastNetwork="CS server net" ;;
         "10.0.16"    ) ClientLastNetwork="CS client net" ;;
     esac
-    if [ -z "$ClientLastNetwork" ]; then
-        ClientLastNetwork="$ClientLastNetworkTemp"
-    fi
+    #if [ -z "$ClientLastNetwork" ]; then
+        #ClientLastNetwork="$ClientLastNetworkTemp"
+    #fi
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*Transport Method:" | cut -d: -f2 | sed 's/^ *//')"
     ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed -e 's/Microsoft //' -e 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
