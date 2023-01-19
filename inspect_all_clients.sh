@@ -47,7 +47,7 @@ for DOMAIN in $SELECTION; do
         #                  CS-TEST'
         CLIENTStmp+=$'\n'
         NumClientsTmp=$(echo "$CLIENTStmp" | sort -u | tr '\n' " " | wc -w)  # Ex: NumClients=5
-        Explanation+="“$DOMAIN” ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $DOMAIN" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'); $NumClientsTmp nodes) & "
+        Explanation+="“$DOMAIN” ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $DOMAIN" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'), $NumClientsTmp nodes) & "
         # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
         Explanation+="Non-existing policy domain: $DOMAIN & "
@@ -137,7 +137,7 @@ client_info() {
     ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"           # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
     ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                # Ex: ClientTotalNumFiles=1502702
     # Get the number of file spaces on the client
-    ClientNumFilespaces=$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query filespace $client f=d" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
+    ClientNumFilespaces=$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occupancy $client" | grep -cE "^\s*Filespace Name:")   # Ex: ClientNumFilespaces=8
 }
 
 backup_result() {
@@ -225,17 +225,21 @@ error_detection() {
         ErrorMsg+="--- NO SCHEDULE ASSOCIATED ---"
     fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4007E\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object); "
+        NumErr=$(grep -c ANE4007E "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4007E\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
     fi
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
         ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed 's/(//' | sed 's/)//' | sort -u | tr '\n' ',' | sed 's/,c/, c/g' | sed 's/,$//')"
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes); "
+        NumErr=$(grep -c ANR2579E "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted); "
+        NumErr=$(grep -c ANR0424W "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters); "
+        NumErr=$(grep -c ANE4042E "$ClientFile")
+        ErrorMsg+="$(printf "%'d" $NumErr) <a href=\"https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
     fi
     # Deal with excessive number of filespaces
     if [ $ClientNumFilespaces -gt 10 ]; then
@@ -260,7 +264,7 @@ print_line() {
     fi
     # Deleted line - saved for precautions:
     # <td align=\"left\" $TextColor><a href=\"${OC_URL/BACKUPNODE/$client}\">$client</a></td>
-    echo "        <tr class="clients">
+    echo "        <tr class=\"clients\">
           <td align=\"left\" $TextColor><a href=\"${client,,}.html\">$client</a></td>
           <td align=\"right\"$TextColor>$(printf "%'d" $BackedupNumfiles)</td>
           <td align=\"right\"$TextColor>$TransferredVolume</td>
@@ -272,10 +276,17 @@ print_line() {
           <td align=\"right\"$TextColor>${ClientNumFilespaces:-0}</td>
           <td align=\"left\" $TextColor>$ClientVersion</td>
           <td align=\"left\" $TextColor>$ClientOS</td>
-          <td align=\"left\" $TextColor>${ErrorMsg%; }</td>
+          <td align=\"left\" $TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td>
         </tr>" >> $ReportFileHTML
 }
 
+# Get the latest client versions
+get_latest_client_versions() {
+    LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
+    LatestLinuxX86_DEBClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86_DEB/.current_client_version | cut -d\. -f-3)"
+    LatestMacClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Mac/.current_client_version | cut -d\. -f-3)"
+    LatestWindowsClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Windows/.current_client_version | cut -d\. -f-3)"
+}
 
 #   _____   _   _  ______       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
 #  |  ___| | \ | | |  _  \     |  _  | |  ___|     |  ___| | | | | | \ | | /  __ \ |_   _| |_   _| |  _  | | \ | | /  ___|
@@ -291,7 +302,7 @@ server_info
 
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:'
-ActlogToday="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -v "ANR2017I")"
+ActlogToday="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -Ev "ANR2017I|ANR0405I|ANR0407I|ANR8592I")"
 # Get all concluded executions (ANR2579E or ANR2507I) the last $ActLogLength. This will save a lot of time later on
 AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
 
@@ -302,7 +313,7 @@ echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${SELECTION%; }”"
 REPORT_DATE="$(date +%F)"
-REPORT_HEAD="<p align=\"left\">Backup report for ${Explanation% & } on server “$ServerName” (running <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=concepts-spectrum-protect-overview\">Spectrum Protect</a> version <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=servers-whats-new\">$ServerVersion</a>) "
+REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” (running <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=concepts-spectrum-protect-overview\">Spectrum Protect</a> version <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=servers-whats-new\">$ServerVersion</a>) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/" | sed "s;REPORT_DATE;$REPORT_DATE;" | sed "s;REPORT_HEAD;$REPORT_HEAD;" >> $ReportFileHTML
 
 # Loop through the list of clients
@@ -335,10 +346,12 @@ done
 # Calculate elapsed time
 Then=$(date +%s)
 ElapsedTime=$(( Then - Now ))
-REPORT_TIME="$(date +%T)"
+REPORT_TIME="$(date +%H:%M)"
 REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m $((ElapsedTime%60))s"
 
-cat "$HTML_Template_End" | sed "s/REPORT_TIME/$REPORT_TIME/" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/" >> $ReportFileHTML
+get_latest_client_versions
+
+cat "$HTML_Template_End" | sed "s/REPORT_TIME/$REPORT_TIME/" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/" | sed "s/LINUXX86VER/$LatestLinuxX86ClientVer/" | sed "s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/" | sed "s/MACOSVER/$LatestMacClientVer/" | sed "s/WINDOWSVER/$LatestWindowsClientVer/" >> $ReportFileHTML
 
 # Send an email report (but only if there is a $RECIPIENT
 if [ -n "$RECIPIENT" ]; then
