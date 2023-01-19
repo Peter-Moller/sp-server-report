@@ -28,20 +28,23 @@ div.main_page {
     background-color: #FFFFFF;
     text-align: center;
 }
-# CS table {
+#CS table {
 table-layout: fixed;
 width: 100%;
 border-collapse: collapse;
 border: 3px solid purple;
 }
+code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radius:2px }
 #jobe {
     border-collapse: collapse;
     width: 100%;
-    spacing: 0px;
+    border-spacing: 0px;
+    position: relative;
 }
 #jobe td {
     border: 1px solid #ddd;
     padding: 4px;
+	vertical-align: top;
 }
 #jobe th {
     color: white;
@@ -49,6 +52,8 @@ border: 3px solid purple;
     text-align: center;
     background-color: #000080;
     cursor: pointer;
+    position: sticky;
+	top: 0;
 }
 #jobe tr:nth-child(even) {
     background-color: white;
@@ -61,8 +66,6 @@ border: 3px solid purple;
     background-color: #9c6114;
     color: white
 }
-</style>
-<style>
 #searchbar {
     margin-left: 40px;
     padding: 5px;
@@ -84,7 +87,9 @@ input[type=text]:focus {
     padding-left: 3px;
     padding-right: 10px;
     padding-top: 1px;
-    padding-bottom: 2px
+    padding-bottom: 2px;
+	text-align: left;
+	vertical-align: top;
 }
 .search-input {
     border: none;
@@ -99,7 +104,6 @@ input[type=text]:focus {
     display: flex;
 }
 .flexbox-item {
-    width: 300px;
     margin: 10px;
     border: 3px #333;
 }
@@ -116,14 +120,12 @@ input[type=text]:focus {
     border-radius: 10px;
     margin: 10px;
     padding: 10px;
-    width: 700px;
 }
 #box-documentation {
     background: #b4d7b8;
     border-radius: 10px;
     margin: 10px;
     padding: 10px;
-    width: 400px;
 }
 </style>
 <script type="text/javascript">
@@ -185,7 +187,7 @@ function search_client() {
         if (!x[i].innerHTML.toLowerCase().includes(input)) {
             x[i].style.display = "none";
         } else {
-            x[i].style.display = "jobe";
+            x[i].style.display = "";
         }
     }
 }
@@ -198,7 +200,7 @@ function search_client() {
   <p>&nbsp;</p>
   <!-- input tag -->
   
-  <p align="left">REPORT_HEAD <input id="searchbar" onkeyup="search_client()" type="text"	name="search" placeholder="Search clients..."></p>
+  <p align="left">REPORT_HEAD <input id="searchbar" onkeyup="search_client()" type="text"	name="search" placeholder="Search..."></p>
   <p align="left">&nbsp;</p>
   <table id="jobe">
     <thead>
