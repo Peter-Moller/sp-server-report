@@ -13,8 +13,9 @@ fi
 # Where the result should be stored locally
 OutDirPrefix="/tmp/tsm"
 OutDir="$OutDirPrefix/${SELECTION/_/\/}"                 # Ex: OutDir=/tmp/tsm/cs/clients
-ClientFile="/tmp/${client,,}.out"
+ClientFile="$OutDirPrefix/${client,,}.out"
 ReportFile="$OutDir/${client,,}.html"                    # Ex: ReportFile=/tmp/tsm/cs/clients/cs-petermac.html
+ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has been thrown, erroneously indicating “no backup”)</em>"
 
 RANGE=$2
 if [ -z "$RANGE" ]; then
@@ -82,7 +83,7 @@ check_node_exists() {
 }
 
 get_header() {
-    cat "${ScriptDirName}/report_one_head.html"  | sed "s/CLIENT_NAME/$client/" | sed "s/REPORT_DATE/$(date +%F)/" > "$ReportFile"
+    cat "${ScriptDirName}/report_one_head.html"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
     chmod 644 "$ReportFile"
 }
 
@@ -137,6 +138,7 @@ client_info() {
         OccupiedPhrase="Logical Space Occupied"
     fi
     ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2- | sed 's/\ *//')"                            # Ex: ClientLastAccess='2018-11-01 11:39:06'
+    # Deal with dates in US format (MM/DD/YY):
     if [ "$(echo "$ClientLastAccess" | cut -c3,6)" = '//' ]; then
         ClientLastAccessDate="20${ClientLastAccess:6:2}-${ClientLastAccess:0:2}-${ClientLastAccess:3:2}"
     else
@@ -167,12 +169,12 @@ print_client_info()
     echo "        <tr><td align=\"right\"><i>Contact:</i></td><td align=\"left\">$ContactName</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Email address:</i></td><td align=\"left\">$ContactEmail</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Node registered by:</i></td><td align=\"left\">${NodeRegisteredBy:--unknown-} on ${NodeRegisteredDate:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Policy Domain:</i></td><td align=\"left\">${PolicyDomain:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Cloptset:</i></td><td align=\"left\">${CloptSet:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Schedule:</i></td><td align=\"left\">${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “policy domain” is an organizational way to group backup clients that share common backup requirements</span></div></td><td align=\"left\">${PolicyDomain:--unknown-}</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are <em>excluded</em> from the backup</span></div><td align=\"left\">${CloptSet:--unknown-}</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “schedule” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div></td><td align=\"left\">${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Transport Method:</i></td><td align=\"left\">${TransportMethod:-unknown}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Can delete backup:</i></td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div></td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client version:</i></td><td align=\"left\">$ClientVersion</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client OS:</i></td><td align=\"left\">$ClientOS</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client last access:</i></td><td align=\"left\">${ClientLastAccess:-no info}</td></tr>" >> $ReportFile
@@ -182,7 +184,6 @@ print_client_info()
 # Get the activity log for today (saves time to do it only one)
 # Do not include ANR2017I ('Administrator ADMIN issued command...')
 get_backup_data() {
-    #echo "Below are all entries in the TSM 'actlog' regarding \"$client\" (except ANR2017I - 'Administrator ADMIN issued command...') during the given time interval:" >> $ClientFile
     dsmadmc -id=$ID -password=$PASSWORD -TABdelimited "query actlog begindate=today$DaysBack enddate=today endtime=now" | grep -Ei "\s$client[ \)]" | grep -v "ANR2017I" >> $ClientFile
 }
 
@@ -217,17 +218,21 @@ backup_result() {
 
 error_detection() {
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4007E\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object); "
+        NumErr=$(grep -c ANE4007E "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4007E\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
     fi
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
         ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed -e 's/(//' -e 's/)//' | sort -u | tr '\n' ',' | sed -e 's/,c/, c/g' -e 's/,$//')"
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes); "
+        NumErr=$(grep -c ANR2579E "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted); "
+        NumErr=$(grep -c ANR0424W "$ClientFile")
+        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
     fi
-    if [ -n "$(grep ANS4042E "$ClientFile")" ]; then
-        ErrorMsg+="<a href=\"https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters); "
+    if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
+        NumErr=$(grep -c ANE4042E "$ClientFile")
+        ErrorMsg+="$(printf "%'d" $NumErr) <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4042E\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
     fi
 }
 
@@ -235,7 +240,7 @@ error_detection() {
 print_result() {
     # Fix the strange situation where a backup has taken place but Return code 12 says it hasn't
     if [ "$BackupStatus" = "ERROR" ] && [ -n "$BackedupNumfiles" ] && [ -n "$TransferredVolume" ] && [ -n "$BackeupElapsedtime" ]; then
-        BackupStatus="Conflicted!!"
+        BackupStatus="Conflicted!!<br>$ConflictedText"
     fi
     # Get time period in a more human form
     if [ "$DaysBack" = " begintime=00:00:00" ]; then
@@ -252,7 +257,7 @@ print_result() {
     echo "        <tr><td align=\"right\"><i>Bytes transferred:</i></td><td align=\"left\">$TransferredVolume</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Time elapsed:</i></td><td align=\"left\">$BackeupElapsedtime</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Backup concluded:</i></td><td align=\"left\">$LastFinishDate $LastFinishTime</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Errors encountered:</i></td><td align=\"left\">${ErrorMsg%; }</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><i>Errors encountered:</i></td><td align=\"left\">$(echo "$ErrorMsg" | sed 's/<br>$//')</td></tr>" >> $ReportFile
     echo "      </tbody>" >> $ReportFile
     echo "    </table>" >> $ReportFile
     echo "    <p>&nbsp;</p>" >> $ReportFile
@@ -264,7 +269,7 @@ print_result() {
     echo "        <tr><th colspan=\"7\">Client usage of server resources:</th></tr>" >> $ReportFile
     echo "      </thead>" >> $ReportFile
     echo "      <tbody>" >> $ReportFile
-    echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align="right"><i>Space Occupied [MB]</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
+    echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align=\"right\"><i>Space Occupied [MB]</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
 
     for fsid in $FSIDs
     do
@@ -282,7 +287,7 @@ print_result() {
             LastBackupDate="20${LastBackupDate:6:2}-${LastBackupDate:0:2}-${LastBackupDate:3:2}"
         fi
         LastBackupNumDays="$(echo "$FSInfo" | grep -E "Days Since Last Backup Completed:" | cut -d: -f2 | awk '{print $1}' | sed 's/[,<]//g')"   # Ex: LastBackupNumDays='<1'
-        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">${NbrFiles:-0}<td align=\"right\">${SpaceOccup:-0}</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">${NbrFiles:-0}</td><td align=\"right\">${SpaceOccup:-0}</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
     done
     echo "      </tbody>" >> $ReportFile
     echo "    </table>" >> $ReportFile
@@ -292,48 +297,53 @@ print_result() {
         fi
     }
 
-print_errors() {
-    echo 
-    ERRORS="$(grep -E "ANE4007E|ANR2579E|ANR0522W|ANR2578W" "$ClientFile" | sed -r 's;^([0-9]{2})/([0-9]{2})/([0-9]{4})(.*);\3-\1-\2\4;')"
-    NumWierdChars=$(grep -c ANE4042E "$ClientFile")
-    if [ -n "$ERRORS" ]; then
-        echo "  <p>&nbsp;</p>" >> $ReportFile
-        echo "  <section>" >> $ReportFile
-        echo "    <table id=\"errors\">" >> $ReportFile
-        echo "      <thead>" >> $ReportFile
-        echo "        <tr><th>Errors and warnings (note that not all errors are reported!)</th></tr>" >> $ReportFile
-        echo "      </thead>" >> $ReportFile
-        echo "      <tbody>" >> $ReportFile
-        echo "        <tr><td align=\"left\"><p>$(echo "$ERRORS" | sed -z 's/\n/<br>/g;s/<br>$//')</p></td>" >> $ReportFile
-        if [ $NumWierdChars -gt 0 ]; then
-            echo "        <tr><td align=\"left\">Additionally, $NumWierdChars files have file names containing one or more unrecognized characters</td>" >> $ReportFile
-        fi
-        echo "      </tbody>"
-        echo "    </table>"
-        echo "  </section>"
-    else
-        if [ $NumWierdChars -gt 0 ]; then
-            echo "  <p>&nbsp;</p>" >> $ReportFile
-            echo "  <section>" >> $ReportFile
-            echo "    <table id=\"errors\">" >> $ReportFile
-            echo "      <thead>" >> $ReportFile
-            echo "        <tr><th>Errors and warnings (note that not all errors are reported!)</th></tr>" >> $ReportFile
-            echo "      </thead>" >> $ReportFile
-            echo "      <tbody>" >> $ReportFile
-            echo "        <tr><td align=\"left\">$NumWierdChars files have file names containing one or more unrecognized characters (error <a href=\"https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a>)</td>" >> $ReportFile
-            echo "      <tbody>" >> $ReportFile
-            echo "    </table>" >> $ReportFile
-            echo "  </section>" >> $ReportFile
-        fi
-    fi
+print_documentation() {
+    case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
+        "macos" ) LogFile="<code>/Library/Logs/tivoli/tsm</code>" ;;
+        "windows" ) LogFile="<code>C:\TSM</code>&nbsp;or&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
+        * ) LogFile="<code>/var/log/tsm</code>&nbsp;or&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
+    esac
+
+    echo "  <p>&nbsp;</p>" >> $ReportFile
+    echo "  <section>" >> $ReportFile
+    echo "    <div id="box-documentation">" >> $ReportFile
+    echo "      <h4>Documentation:</h4>" >> $ReportFile
+    echo "      <div class="flexbox-container">" >> $ReportFile
+    echo "        <table id="explanations">" >> $ReportFile
+    echo "          <tr>" >> $ReportFile
+    echo "            <td colspan="2"><p><img src="https://fileadmin.cs.lth.se/intern/backup/cs/pdf.svg" width="70" height="70" alt="PDF-icon"></p></td>" >> $ReportFile
+    echo "            <td><div align="left">" >> $ReportFile
+    echo "                <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5d/1669975867674/About_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">About the Spectrum Protect Backup</a></p>" >> $ReportFile
+    echo "                <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5e/1669975867713/How_to_restore_files_from_the_Spectrum_Protect_backup.pdf" target="_blank" rel="noopener noreferrer">Restore files (GUI)</a></p>" >> $ReportFile
+    echo "                <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5f/1669975867746/How_to_restore_files_from_the_Spectrum_Protect_backup_using_CLI.pdf" target="_blank" rel="noopener noreferrer">Restore files (CLI)</a></p>" >> $ReportFile
+    echo "                <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e60/1669975867763/Deselect_files_from_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">Deselect files from backup</a></p>" >> $ReportFile
+    echo "                <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.1a60868218529b3dca391a8e/1673615105281/Installing_the_client.pdf" target="_blank" rel="noopener noreferrer">Installing the Spectrum Protect Backup client</a></p>" >> $ReportFile
+    echo "              </div></td>" >> $ReportFile
+    echo "          </tr>" >> $ReportFile
+    echo "          <tr>" >> $ReportFile
+    echo "            <td colspan="3">&nbsp;</td>" >> $ReportFile
+    echo "          </tr>" >> $ReportFile
+    echo "          <tr>" >> $ReportFile
+    echo "            <td colspan="3"><p align="left">Details can be found in the local log file, <code>dsmsched.log</code>,<br>found in $LogFile</p></td>" >> $ReportFile
+    echo "          </tr>" >> $ReportFile
+    echo "        </table>" >> $ReportFile
+    echo "      </div>" >> $ReportFile
+    echo "    </div>" >> $ReportFile
+    echo "  </section>" >> $ReportFile
 }
 
-get_end() {
+print_footer() {
     echo "  <footer>" >> $ReportFile
     echo "    <p>&nbsp;</p>" >> $ReportFile
     echo "    <div id=\"box1\">" >> $ReportFile
-    echo "      <p><em>For admins only:</em><br>" >> $ReportFile
-    echo "        &#9758; <a href=\"https://spoc.cs.lth.se:11090/oc/gui#clients/detail?server=${ServerName}&resource=${client}&vmOwner=%20&target=%20&type=1&nodeType=1&ossm=0&nav=overview\">Linkt to admin server</a></p>" >> $ReportFile
+    echo "      <table>" >> $ReportFile
+    echo "        <tr>" >> $ReportFile
+    echo "          <td><p><img src=\"https://fileadmin.cs.lth.se/intern/backup/cs/settings_icon.svg\" width=\"40\" alt=\"Settings-icon\">&nbsp;&nbsp;</p></td>" >> $ReportFile
+    echo "          <td><p align=\"left\"><em>For admins only:</em><br>" >> $ReportFile
+    echo "            <a href=\"https://$OC_SERVER/oc/gui#clients/detail?server=${ServerName}&resource=${client}&vmOwner=%20&target=%20&type=1&nodeType=1&ossm=0&nav=overview\" target=\"_blank\" rel=\"noopener noreferrer\">Linkt to admin server</a></p>" >> $ReportFile
+    echo "          </td>" >> $ReportFile
+    echo "        </tr>" >> $ReportFile
+    echo "      </table>" >> $ReportFile
     echo "    </div>" >> $ReportFile
     echo "  </footer>" >> $ReportFile
     echo "</div>" >> $ReportFile
@@ -382,12 +392,12 @@ error_detection
 print_result
 
 # Print certain error messages:
-print_errors
+print_documentation
 
 # Print the end:
-get_end
+print_footer
 
 # Copy result if SCP=true
 if $SCP; then
-    scp "$ReportFile" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${SELECTION/_/\/}/${client}.html"
+    scp "$ReportFile" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${SELECTION/_/\/}/${client,,}.html" &>/dev/null
 fi
