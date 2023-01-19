@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Backup-report for client “cs-web”</title>
+<title>Backup-report for client “CLIENT_NAME”</title>
 <style type="text/css" media="screen">
 * {
     margin: 0px 0px 0px 0px;
@@ -28,28 +28,65 @@ div.main_page {
     background-color: #FFFFFF;
     text-align: center;
 }
-# CS table {
-table-layout: fixed;
-border-collapse: collapse;
-width=100%;
-border: 3px solid purple;
-}
-#information { font-family: Frutiger, Helvetica, Arial, sans-serif; width=100%; border-collapse: collapse; spacing: 0px; }
-#information td { border: 1px solid #ddd; padding: 4px; }
+code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radius:2px }
+#information { font-family: Frutiger, Helvetica, Arial, sans-serif; border-collapse: collapse; }
+#information td { border: 1px solid #ddd; padding: 4px; vertical-align: top; }
 #information th { color: white; padding: 4px; text-align: center; background-color: #000080; cursor: pointer; }
 #information tr:nth-child(even) { background-color: white; color: black; }
 #information tr:nth-child(odd)  { background-color: #EBEBEB; }
 #information tr:hover { background-color: #9c6114; color: white }
-#errors { font-family: Frutiger, Helvetica, Arial, sans-serif; width=100%; border-collapse: collapse; spacing: 0px; }
+#errors { font-family: Frutiger, Helvetica, Arial, sans-serif; border-collapse: collapse; }
 #errors td { border: 1px solid #ddd; padding: 4px; }
 #errors th { color: red; padding: 4px; text-align: center; background-color: #fdeeef; cursor: pointer; }
 
 #box1 {
-    background: #b4d7b8;
+    background: #fcdee0;
     border-radius: 10px;
     margin: 10px;
     padding: 10px;
     width: 200px
+}
+#explanations {
+    border-collapse: separate;
+}
+#explanations td {
+    padding-left: 3px;
+    padding-right: 10px;
+    padding-top: 1px;
+    padding-bottom: 2px;
+	text-align: left;
+	vertical-align: top;
+}
+.flexbox-container {
+    display: flex;
+}
+#box-documentation {
+    background: #b4d7b8;
+    border-radius: 10px;
+    margin: 10px;
+    padding: 10px;
+}
+.tooltip {
+  position: relative;
+  display: inline-block;
+  border-bottom: 1px dotted grey;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 220px;
+  background-color: #f1f7f9;
+  color: black;
+  text-align: center;
+  border-radius: 6px;
+  padding: 10px 10px;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+box-shadow: 3px 3px 4px rgba(0,0,0, .65);
 }
 </style>
 </head>
@@ -58,6 +95,7 @@ border: 3px solid purple;
   <header>
     <h1>Backup-report for client “CLIENT_NAME”</h1>
     <h2>REPORT_DATE</h2>
+    <h3>REPORT_TIME</h3>
   </header>
   <section>
     <p>&nbsp;</p>
