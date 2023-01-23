@@ -66,37 +66,32 @@ Examples:
 ### inspect\_all\_clients.sh
 
 This script takes as argument a space separated list of one or more policy domains and builds a list of clients that are associated with those domains.  
-This list of clients is traversed and information (specified below) is gathered.
+This list of clients is traversed and information (specified below) is gathered and two reports are created:
+  1. a web page as in _example 1_ below, listing all client in the domain(s)
+  2. a web page for each client, see _example 2_
 
 If a given domain is not valid, it will be noticded as such. If a client is present in multiple domains, it will be processed only once. The list of clients is processed alphabetically. 
 
 The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`, containing the following:  
-`export ID=_admin-username_`  
-`export PWD=_admin-password_`  
-`RECIPIENT="peter.moller@cs.lth.se,anders.bruce@cs.lth.se"`  
+| Key                                                 | Explanation |
+|-----------------------------------------------------|--------------|
+| `export ID=sp-user`                                 | User name for `dsmadmc` |
+| `export PASSWORD='secret_password'`                 | Password for that user |
+| `RECIPIENT="recipient@my.domain"`                   | Email address to send the completed report to |
+| `export OC_SERVER="server.url.edu:portnumber"`      | URL for the Operations Server (for the report only) |
+| `export SCP=true`                                   | If the report is supposed to be transferred to another system |
+| `export SCP_HOST=webb.server.org`                   | ...and the DNS-name for that system |
+| `export SCP_DIR=/path/to/web/dir/`                  | ...as well as directory |
+| `export SCP_USER=username`                          | ...and user name to log in as (using stored ssh-keys) |
+| `export PUBLICATION_URL="https://com.url.edu/path"` | URL for the finished report (included in the email) |
+| `export STORAGE_POOL="STORAGE_POOL_1"`              | Given this, size and usage of the Storage Pool will be presented |
 
-The generated report will look as in this example:
+Example 1:  
+_(Please note that the columns are sortable)_
 
-![examples of inspect_all_clients](examples_of_inspect_all_clients.jpg)
+![examples of inspect_all_clients](example_of_inspect_all_backup-report.png)
 
-A number of data points are specified:
+Example 2:
 
-  * Client name
-  * Number of file during the last backup session (`ANE4954I`)
-  * Total number of bytes transferred (`ANE4961I`)
-  * Elapsed processing time (`ANE4964I`)
-  * State: successful or not. If the client hasn’t had any communication with the server in >30 days, a special warning about that is given
-  * Physical Space Occupied on the server (in total)
-  * Number of Files on the server (in total)
-  * Number of filespaces on the client
-  * Version of the client software on the client computer
-  * From what network the last client access occurred
-  * What operating system the client is using
-  * Errors. During the years, we have seen the following errors and thus warns for them:
-    * No schedule associated
-    * Access denied to object ([`ANE4007E`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-ane4000e#ANE4007E))
-    * Return code ([`ANR2579E`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-anr0010w#ANR2579E))
-    * Invalid password submitted ([`ANR0424W`](https://www.ibm.com/docs/en/spectrum-protect/8.1.13?topic=list-anr0010w#ANR0424W))
-    * Object contains unrecognized characters ([`ANS4042E`](https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients))
+![examples of a single client](example_of_backup-report_one_client.png)
 
-_Note that there may be other error messages that may be relevant to look for!_
