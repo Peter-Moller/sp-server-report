@@ -1,13 +1,14 @@
 # tsm-server-report
-Shell scripts reporting about backup of TSM-clients.
+Linux shell scripts reporting about backup of TSM-clients.
 
 There are two scripts:  
 `inspect_one_client.sh`  
 `inspect_all_clients.sh`
 
-The first is intended for an interactive investigation of one specific client and the other for a mass-examination of a range of clients. In the first case, a client name is required and an optional number, specifying the number of days back to examine, may be given. In the second case, a client list is required.
+The first is intended for an interactive investigation of one specific. A client name is required and an optional number, specifying the number of days back to examine, may be given.  
+The second script examines all clients in a policy domain (required parameter). The script produces a web page for the clients in the domain and also a file for every client – see examples below. The overview web page is sent by email to a given recipient and the generated files may be published on a web server. 
 
-Both scripts are assumed to be run on the TSM server and requires a file, `tsm_secrets.env` (excluded from git), to be present in the directory of the repo. In that file, the `id` and `pwd` to be used by `dsmadmc` must be specified. It can also be a good place to put a `LANG` environment variable (I use `export LANG=sv_SE.UTF-8`).
+Both scripts are assumed to be run on a linux client with an installed client (or rather, the `dsmadmc` binary) and requires a file, `tsm_secrets.env` (excluded from git). In that file, the `id` and `password` to be used by `dsmadmc` must be specified. The file can reside in the project directory or in the user home directory.
 
 ### inspect\_one\_client.sh
 It takes two parameters:
