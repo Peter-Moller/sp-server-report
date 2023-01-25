@@ -10,6 +10,9 @@ The second script examines all clients in a policy domain (required parameter). 
 
 Both scripts are assumed to be run on a linux client with an installed client (or rather, the `dsmadmc` binary) and requires a file, `tsm_secrets.env` (excluded from git). In that file, the `id` and `password` to be used by `dsmadmc` must be specified. The file can reside in the project directory or in the user home directory.
 
+The scripts look for errors `ANE4007E`, `ANR2579E`, `ANR0424W` and `ANE4042E` and notify the user about them. The selection is used on the simple reason that those are the errors we most commonly see. A more robust, and general, solution might be developed in the future.
+
+
 ### inspect\_one\_client.sh
 It takes two parameters:
 
@@ -42,7 +45,7 @@ This list of clients is traversed and information (specified below) is gathered 
   1. a web page as in _example 1_ below, listing all client in the domain(s)
   2. a web page for each client, see _example 2_
 
-If a given domain is not valid, it will be noticded as such. If a client is present in multiple domains, it will be processed only once. The list of clients is processed alphabetically. 
+If a given domain is not valid, it will be noticed as such. If a client is present in multiple domains, it will be processed only once. The list of clients is processed alphabetically. The table is bort sortable and searchable.
 
 The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`, containing the following:  
 | Key                                                  | Explanation |
