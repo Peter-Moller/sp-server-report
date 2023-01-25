@@ -54,6 +54,7 @@ code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radiu
     cursor: pointer;
     position: sticky;
 	top: 0;
+    vertical-align: bottom;
 }
 #jobe tr:nth-child(even) {
     background-color: white;
@@ -82,6 +83,7 @@ input[type=text]:focus {
 }
 #explanations {
     border-collapse: separate;
+	border-spacing: 3px;
 }
 #explanations td {
     padding-left: 3px;
@@ -205,18 +207,18 @@ function search_client() {
   <table id="jobe">
     <thead>
       <tr>
-        <th onclick="sortTable(0)">Client</th>
-        <th align="right" onclick="sortTable(1)">Files</th>
-        <th onclick="sortTable(2)">Transferred</th>
-        <th onclick="sortTable(3)">Duration</th>
-        <th onclick="sortTable(4)">Status</th>
-        <th onclick="sortTable(5)">Client network</th>
-        <th align="right" onclick="sortTable(6)">∑ files</th>
-        <th align="right" onclick="sortTable(7)">Total [GB]</th>
-        <th align="right" onclick="sortTable(8)"># FS</th>
-        <th onclick="sortTable(9)">Version</th>
-        <th onclick="sortTable(10)">Client OS</th>
-        <th onclick="sortTable(11)">Errors</th>
+        <th onclick="sortTable(0)">Client&nbsp;name</th>
+        <th align="right" onclick="sortTable(1)">Backed<br>objects</th>
+        <th onclick="sortTable(2)">Bytes<br>transferred</th>
+        <th onclick="sortTable(3)">Elapsed<br>time</th>
+        <th onclick="sortTable(4)">Backup<br>status</th>
+        <!--<th onclick="sortTable(5)">Client network</th>-->
+        <th align="right" onclick="sortTable(5)">Files on<br>server</th>
+        <th align="right" onclick="sortTable(6)">Volume on<br>server&nbsp;[GB]</th>
+        <!--<th align="right" onclick="sortTable(8)"># FS</th>-->
+        <th onclick="sortTable(7)">Client<br>version</th>
+        <th onclick="sortTable(8)">Client<br>Operating System</th>
+        <th onclick="sortTable(9)">Errors&nbsp;encountered</th>
       </tr>
     </thead>
     <tbody>

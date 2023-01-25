@@ -6,29 +6,17 @@
       <h4>Explanations:</h4>
       <table id="explanations">
         <tr>
-          <td><p style="color: red" align="left">Red status</p></td>
-          <td>CRITICAL: no backup has been performed</td>
-        </tr>
+          <td><p align="left">Status: <span style="color: red">Red</span><br>Status: <span style="color: orange">Orange</span><br>Status: “Conflicted!!”</p></td>
+          <td>CRITICAL: no backup has been performed (ever)<br>WARNING: backup does not work appropriately<br>A backup <em>has</em> been performed, but <a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E" target="_blank" rel="noopener noreferrer">ANR2579E</a> erroneously indicate “no backup”</td>
+        </tr>      
         <tr>
-          <td><p style="color: orange" align="left">Orange status</p></td>
-          <td>WARNING: backup does not work appropriately</td>
+          <td>Volume on<br>server&nbsp;[GB]</td>
+          <td><em><a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_L__x2153899" target="_blank" rel="noopener noreferrer">logical occupancy</a></em> of server disk STORAGE<br><em>(the server use “<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_D__x3458980" target="_blank" rel="noopener noreferrer">deduplication</a>” and it’s impossible to say how much space the client use)</em></td>
         </tr>
+        <!--<tr><td valign="top"># FS</td><td>Number of <a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_F__x2153709" target="_blank" rel="noopener noreferrer">file spaces</a> that have been backed up (“Filespace” = file system)</td></tr>-->
         <tr>
-          <td>“Conflicted!!”</td>
-          <td>A backup <em>has</em> been performed, but a <a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E" target="_blank" rel="noopener noreferrer">ANR2579E</a> has been thrown, erroneously indicating “no backup”</td>
-        </tr>
-        <tr>
-          <td>Total&nbsp;[GB]</td>
-          <td><em><a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_L__x2153899" target="_blank" rel="noopener noreferrer">logical occupancy</a></em> of server disk STORAGE<br><em>(since the server uses “<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_D__x3458980" target="_blank" rel="noopener noreferrer">deduplication</a>”, it’s impossible to say how much space the client actually uses)</em></td>
-        </tr>
-        <tr>
-          <td valign="top"># FS</td>
-          <td>Number of <a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_F__x2153709" target="_blank" rel="noopener noreferrer">file spaces</a> that have been backed up (“Filespace” = file system)</td>
-        </tr>
-        <tr>
-          <td>Version</td>
-          <td>The version of the backup client.<br>
-            Latest versions: 
+          <td>Client<br>version</td>
+          <td>The version of the Spectrum Protect client. Latest versions are found here:<br> 
             Linux-RPM: <a href="http://ftp.software.ibm.com/storage/tivoli-storage-management/maintenance/client/v8r1/Linux/LinuxX86/BA/" target="_blank" rel="noopener noreferrer">LINUXX86VER</a>; 
             Linux-DEB: <a href="http://ftp.software.ibm.com/storage/tivoli-storage-management/maintenance/client/v8r1/Linux/LinuxX86_DEB/BA/" target="_blank" rel="noopener noreferrer">LINUXX86DEBVER</a>; 
             macOS: <a href="http://ftp.software.ibm.com/storage/tivoli-storage-management/maintenance/client/v8r1/Mac/" target="_blank" rel="noopener noreferrer">MACOSVER</a>; 
@@ -44,11 +32,11 @@
         <table id="explanations">
           <tr><td colspan="2"><p><img src="https://fileadmin.cs.lth.se/intern/backup/cs/pdf.svg" width="70" height="70" alt="PDF-icon"></p></td><td>
           <div align="left">
-            <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5d/1669975867674/About_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">About the Spectrum Protect Backup</a></p>
-            <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5e/1669975867713/How_to_restore_files_from_the_Spectrum_Protect_backup.pdf" target="_blank" rel="noopener noreferrer">Restore files (GUI)</a></p>
-            <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e5f/1669975867746/How_to_restore_files_from_the_Spectrum_Protect_backup_using_CLI.pdf" target="_blank" rel="noopener noreferrer">Restore files (CLI)</a></p>
-            <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.5b76e7a8184b9280a4a18e60/1669975867763/Deselect_files_from_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">Deselect files from backup</a></p>
-            <p>&#10132;&nbsp;<a href="https://lthin.lth.lu.se/download/18.1a60868218529b3dca391a8e/1673615105281/Installing_the_client.pdf" target="_blank" rel="noopener noreferrer">Installing the Spectrum Protect Backup client</a></p>
+            <p>&#10132;&nbsp;<a href="https://fileadmin.cs.lth.se/intern/backup/About_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">About the Spectrum Protect Backup</a></p>
+            <p>&#10132;&nbsp;<a href="https://fileadmin.cs.lth.se/intern/backup/How_to_restore_files_from_the_Spectrum_Protect_backup.pdf" target="_blank" rel="noopener noreferrer">Restore files (GUI)</a></p>
+            <p>&#10132;&nbsp;<a href="https://fileadmin.cs.lth.se/intern/backup/How_to_restore_files_from_the_Spectrum_Protect_backup_using_CLI.pdf" target="_blank" rel="noopener noreferrer">Restore files (CLI)</a></p>
+            <p>&#10132;&nbsp;<a href="https://fileadmin.cs.lth.se/intern/backup/Deselect_files_from_the_Spectrum_Protect_Backup.pdf" target="_blank" rel="noopener noreferrer">Deselect files from backup</a></p>
+            <p>&#10132;&nbsp;<a href="https://fileadmin.cs.lth.se/intern/backup/Installing_the_client.pdf" target="_blank" rel="noopener noreferrer">Installing the Spectrum Protect Backup client</a></p>
           </div></td></tr>
         <tr><td colspan="3">&nbsp;</td></tr>
         <tr><td colspan="3"><p align="left">Details can be found in the local log file: <code>dsmsched.log</code>, found in:</p></td></tr>

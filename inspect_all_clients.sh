@@ -75,6 +75,8 @@ fi
 
 HTML_Template_Head="$ScriptDirName"/report_head.html
 HTML_Template_End="$ScriptDirName"/report_end.html
+HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
+HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
 ### DECISION: should we have date in the file name for the overview table?
 ### (it will be removed when copied to the web server)
 ReportFileHTML="${OutDirPrefix}/${SELECTION/_/\/}_${Today}.html"  # Ex: ReportFileHTML='/tmp/tsm/cs_servers+cs_clients_2022-11-11.html'
@@ -156,7 +158,7 @@ client_info() {
     fi
     ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"                                                      # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
     ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                                        # Ex: ClientTotalSpaceUsedMB=1502702
-    ClientTotalSpaceUsedGB=$(echo "scale=0; ( $ClientTotalSpaceTemp ) / 1024" | bc | cut -d. -f1)                                                                                             # Ex: ClientTotalSpaceUsedMB=1467
+    ClientTotalSpaceUsedGB=$(echo "scale=0; ( $ClientTotalSpaceTemp ) / 1024" | bc 2>/dev/null | cut -d. -f1)                                                                                 # Ex: ClientTotalSpaceUsedMB=1467
     ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"                                                   # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
     ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                        # Ex: ClientTotalNumFiles=1502702
     # Get the number of client file spaces on the server
@@ -269,7 +271,7 @@ error_detection() {
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4042E "$ClientFile")
-        ErrorMsg+="$(printf "%'d" $NumErr) <a href=\"https://www.ibm.com/support/pages/ans4042e-unrecognized-characters-during-backup-data-linux-clients\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
+        ErrorMsg+="$(printf "%'d" $NumErr) <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANS4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
     fi
     # Deal with excessive number of filespaces
     if [ $ClientNumFilespacesOnServer -gt 10 ]; then
@@ -300,10 +302,10 @@ print_line() {
           <td align=\"right\"$TextColor>$TransferredVolume</td>
           <td align=\"left\" $TextColor>$BackeupElapsedtime</td>
           <td align=\"left\" $TextColor>${BackupStatus/ERROR/- NO BACKUP -}</td>
-          <td align=\"left\" $TextColor>$ClientLastNetwork</td>
+          <!--<td align=\"left\" $TextColor>$ClientLastNetwork</td>-->
           <td align=\"right\"$TextColor>$(printf "%'d" $ClientTotalNumFiles)</td>
           <td align=\"right\"$TextColor>$(printf "%'d" $ClientTotalSpaceUsedGB)</td>
-          <td align=\"right\"$TextColor>${ClientNumFilespacesOnServer:-0}</td>
+          <!--<td align=\"right\"$TextColor>${ClientNumFilespacesOnServer:-0}</td>-->
           <td align=\"left\" $TextColor>$ClientVersion</td>
           <td align=\"left\" $TextColor>$ClientOS</td>
           <td align=\"left\" $TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td>
@@ -321,10 +323,10 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "${ScriptDirName}/report_one_head.html"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
     ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are <em>excluded</em> from the backup</span></div>"
-    ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_C__x2210629\">schedul</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
+    ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
     ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
     ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
     # Get more detail for macOS:
@@ -411,10 +413,10 @@ create_one_client_report() {
     done
     case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
         "macos"   ) LogFile="<code>/Library/Logs/tivoli/tsm</code>" ;;
-        "windows" ) LogFile="<code>C:\TSM</code>&nbsp;or&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
-                * ) LogFile="<code>/var/log/tsm</code>&nbsp;or&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
+        "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
+                * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "${ScriptDirName}/report_one_end.html" | sed "s/LGFILE/$LogFile/" >> $ReportFile
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then
@@ -487,7 +489,8 @@ done
 Then=$(date +%s)
 ElapsedTime=$(( Then - Now ))
 REPORT_TIME="$(date +%H:%M)"
-REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m $((ElapsedTime%60))s"
+#REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m $((ElapsedTime%60))s"
+REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
 
 get_latest_client_versions
 
