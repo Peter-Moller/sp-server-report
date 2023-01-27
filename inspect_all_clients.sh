@@ -96,7 +96,7 @@ server_info() {
     ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
     ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
     EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
-    OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}&resource=BACKUPNODE&vmOwner=%20&target=%20&type=1&nodeType=1&ossm=0&nav=overview"
+    OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
         StgSizeGB="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/,//g')"              # Ex: StgSizeGB=276035
@@ -325,7 +325,7 @@ create_one_client_report() {
     chmod 644 "$ReportFile"
     cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
     ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
-    ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are <em>excluded</em> from the backup</span></div>"
+    ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
     ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
     ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
     ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
@@ -416,7 +416,7 @@ create_one_client_report() {
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" >> $ReportFile
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" | sed "s|OC_URL|$OC_URL|" | sed "s/BACKUPNODE/${client,,}/" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then
