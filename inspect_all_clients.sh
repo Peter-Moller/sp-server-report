@@ -258,7 +258,7 @@ error_detection() {
     fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4007E "$ClientFile")
-        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=list-ane4000e#ANE4007E\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
+        ErrorMsg+="$NumErr <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
     fi
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
         ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed 's/(//' | sed 's/)//' | sort -u | tr '\n' ',' | sed 's/,c/, c/g' | sed 's/,$//')"
