@@ -263,7 +263,7 @@ error_detection() {
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
         ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed 's/(//' | sed 's/)//' | sort -u | tr '\n' ',' | sed 's/,c/, c/g' | sed 's/,$//')"
         NumErr=$(grep -c ANR2579E "$ClientFile")
-        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
+        ErrorMsg+="$NumErr <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         NumErr=$(grep -c ANR0424W "$ClientFile")
