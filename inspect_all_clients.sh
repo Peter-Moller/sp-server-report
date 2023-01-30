@@ -66,6 +66,7 @@ fi
 # Some basic stuff
 Today="$(date +%F)"                                 # Ex: Today=2011-11-11
 Now=$(date +%s)                                     # Ex: Now=1662627432
+MulSign="&#215;"                                    # ×
 OutDirPrefix="/tmp/tsm"
 OutDir="$OutDirPrefix/${SELECTION/_/\/}"            # Ex: OutDir=/tmp/tsm/cs/clients
 # Create the OutDir if it doesn't exist:
@@ -99,9 +100,9 @@ server_info() {
     OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
-        StgSizeGB="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/,//g')"              # Ex: StgSizeGB=276035
+        StgSizeGB="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/,//g')"             # Ex: StgSizeGB=276035
         StgSizeTB="$(echo "scale=0; $StgSizeGB / 1024" | bc -l)"                                                                                                                              # Ex: StgSizeTB=269
-        StgUsage="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                      # Ex: StgUsage=2.9
+        StgUsage="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                     # Ex: StgUsage=2.9
         StorageText="($StgSizeTB TB, ${StgUsage}% used)"                                                                                                                                      # Ex: StorageText='(276 TB, 2.9% used)'
     fi
     
@@ -258,20 +259,20 @@ error_detection() {
     fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4007E "$ClientFile")
-        ErrorMsg+="$NumErr <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
+        ErrorMsg+="$NumErr $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4007E</a> (access denied to object)<br>"
     fi
     if [ -n "$(grep ANR2579E "$ClientFile")" ]; then
         ErrorCodes="$(grep ANR2579E "$ClientFile" | grep -Eio "\(return code -?[0-9]*\)" | sed 's/(//' | sed 's/)//' | sort -u | tr '\n' ',' | sed 's/,c/, c/g' | sed 's/,$//')"
         NumErr=$(grep -c ANR2579E "$ClientFile")
-        ErrorMsg+="$NumErr <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
+        ErrorMsg+="$NumErr $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> ($ErrorCodes)<br>"
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         NumErr=$(grep -c ANR0424W "$ClientFile")
-        ErrorMsg+="$NumErr <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
+        ErrorMsg+="$NumErr $MulSign <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4042E "$ClientFile")
-        ErrorMsg+="$(printf "%'d" $NumErr) <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANS4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
+        ErrorMsg+="$(printf "%'d" $NumErr) $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANS4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
     fi
     # Deal with excessive number of filespaces
     if [ $ClientNumFilespacesOnServer -gt 10 ]; then
