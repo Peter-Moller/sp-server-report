@@ -416,7 +416,8 @@ create_one_client_report() {
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" | sed "s|OC_URL|$OC_URL|" | sed "s/BACKUPNODE/${client,,}/" >> $ReportFile
+    MainURL="${PUBLICATION_URL}/${SELECTION/_/\/}"
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" | sed "s|OC_URL|$OC_URL|" | sed "s/BACKUPNODE/${client,,}/" | sed "s|MAIN_URL|${MainURL}|" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then
