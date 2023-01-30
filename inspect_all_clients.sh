@@ -64,11 +64,11 @@ fi
 
 
 # Some basic stuff
-Today="$(date +%F)"                                 # Ex: Today=2011-11-11
-Now=$(date +%s)                                     # Ex: Now=1662627432
-MulSign="&#215;"                                    # ×
-OutDirPrefix="/tmp/tsm"
-OutDir="$OutDirPrefix/${SELECTION/_/\/}"            # Ex: OutDir=/tmp/tsm/cs/clients
+Today="$(date +%F)"                                                  # Ex: Today=2011-11-11
+Now=$(date +%s)                                                      # Ex: Now=1662627432
+MulSign="&#215;"                                                     # ×
+OutDirPrefix="/var/tmp/tsm"
+OutDir="$OutDirPrefix/${SELECTION/_/\/}"                             # Ex: OutDir=/var/tmp/tsm/cs/clients
 # Create the OutDir if it doesn't exist:
 if [ ! -d $OutDir ]; then
     mkdir -p $OutDir
@@ -80,7 +80,8 @@ HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
 HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
 ### DECISION: should we have date in the file name for the overview table?
 ### (it will be removed when copied to the web server)
-ReportFileHTML="${OutDirPrefix}/${SELECTION/_/\/}_${Today}.html"  # Ex: ReportFileHTML='/tmp/tsm/cs_servers+cs_clients_2022-11-11.html'
+ReportFileHTML="${OutDirPrefix}/${SELECTION/_/\/}_${Today}.html"     # Ex: ReportFileHTML='/var/tmp/tsm/cs_servers+cs_clients_2022-11-11.html'
+ErrorFile="${OutDirPrefix}/${SELECTION/_/\/}_${Today}.errors"        # Ex: ErrorFile='/var/tmp/tsm/cs_servers+cs_clients_2022-11-11.errors'
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -106,6 +107,26 @@ server_info() {
         StorageText="($StgSizeTB TB, ${StgUsage}% used)"                                                                                                                                      # Ex: StorageText='(276 TB, 2.9% used)'
     fi
     
+}
+
+errors_today() {
+    # Make a variable with all error codes that are “irrelevant”
+    ErrorsToAvoid='ANR0403I|ANR0406I|ANR0944E|ANR1999I|ANR2017I|ANR2034E|ANR2662I|ANR8592I|ANR0405I|ANR0407I|ANR1959I|ANR1960I|ANR0950I|ANR0951I|ANR1794W|ANR2562I|ANR2563I|ANR2565I|ANR0481W|ANR0482W|ANR0440W|ANR0479W|ANR2023E|ANR8583E|ANR8601E|ANR8213E|ANR2579E'
+    echo "Errors $Today" > "$ErrorFile"
+    echo "" >> "$ErrorFile"
+    grep -Ev "$ErrorsToAvoid" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E" | grep -Eo "\bAN[^\)]*)" | awk '{print $1" "$NF}' | sed 's/)//' | sort | uniq -c >> "$ErrorFile"
+    # The following list of errors have been encountered (and might thus be of some interest):
+    # ANE4005E  Error processing 'X': file not found
+    # ANE4007E  Error processing 'X': access to the object is denied
+    # ANE4037E  Object 'X' changed during processing.  Object skipped
+    # ANE4042E  Object name 'X
+    # ANE4081E  Error processing 'Y': file space type is not supported
+
+    # Copy result if SCP=true
+    if $SCP; then
+        scp "$ErrorFile" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${SELECTION/_/\/}/errors.txt"
+    fi
+
 }
 
 client_info() {
@@ -274,6 +295,10 @@ error_detection() {
         NumErr=$(grep -c ANE4042E "$ClientFile")
         ErrorMsg+="$(printf "%'d" $NumErr) $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANS4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
     fi
+    if [ -n "$(grep ANE4081E "$ClientFile")" ]; then
+        NumErr=$(grep -c ANE4081E "$ClientFile")
+        ErrorMsg+="$(printf "%'d" $NumErr) $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4081E</a> (file space type is not supported)<br>"
+    fi
     # Deal with excessive number of filespaces
     if [ $ClientNumFilespacesOnServer -gt 10 ]; then
         ErrorMsg+=">10 filespaces!; "
@@ -322,7 +347,7 @@ get_latest_client_versions() {
 }
 
 create_one_client_report() {
-    ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/tmp/tsm/cs/clients/cs-petermac.html
+    ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
     cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
     ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
@@ -443,6 +468,9 @@ server_info
 ActlogToday="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -Ev "ANR2017I|ANR8592I|ANR0407I|ANR0405|ANR8592II|ANR2662I|ANR2165E|ANR2034E|ANR0406I|ANR0403I|ANR1999I|ANR1959I|ANR0944E|ANR1960I|ANR0950I|ANR8601E|ANR8583E|ANR0440W")"
 # Get all concluded executions (ANR2579E or ANR2507I) the last $ActLogLength. This will save a lot of time later on
 AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
+
+# Get the errors experienced today
+errors_today
 
 echo "To: $RECIPIENT" > $ReportFileHTML
 echo "Subject: Backup report for ${SELECTION%; }" >> $ReportFileHTML
