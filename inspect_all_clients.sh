@@ -73,6 +73,7 @@ OutDir="$OutDirPrefix/${SELECTION/_/\/}"                             # Ex: OutDi
 if [ ! -d $OutDir ]; then
     mkdir -p $OutDir
 fi
+ActlogToday="$(mktemp)"
 
 HTML_Template_Head="$ScriptDirName"/report_head.html
 HTML_Template_End="$ScriptDirName"/report_end.html
@@ -110,9 +111,36 @@ server_info() {
 }
 
 errors_today() {
-    # Make a variable with all error codes that are “irrelevant”
-    ErrorsToAvoid='ANR0403I|ANR0406I|ANR0944E|ANR1999I|ANR2017I|ANR2034E|ANR2662I|ANR8592I|ANR0405I|ANR0407I|ANR1959I|ANR1960I|ANR0950I|ANR0951I|ANR1794W|ANR2562I|ANR2563I|ANR2565I|ANR0481W|ANR0482W|ANR0440W|ANR0479W|ANR2023E|ANR8583E|ANR8601E|ANR8213E|ANR2579E'
-    echo "Errors $Today" > "$ErrorFile"
+    # Make a variable with all error codes that are “irrelevant”:
+    # ANR0403I Session nnnnn ended for node XX
+    # ANR0405I Session nnnnn ended for administrator ADMIN
+    # ANR0406I Session nnnnn started for node XX
+    # ANR0407I Session nnnnn started for administrator ADMIN (SSL tsm4.cs.lth.se)
+    # ANR0440W Protocol error on session nnnnn for node Unknown () - invalid verb header received
+    # ANR0479W Session nnnnn for server 178-79-139-171.ip.linodeusercontent.com () terminated - connection with server severed
+    # ANR0481W Session nnnnn for node XX was terminated. The client did not respond within 60 seconds
+    # ANR0482W Session nnnnn for node XX terminated - idle for more than 15 minutes
+    # ANR0944E QUERY PROCESS: No active processes found. 
+    # ANR0950I Session nnnnn for node XX is using inline server data deduplication or inline compression
+    # ANR0951I Session nnnnn for node XX processed nn files by using inline data deduplication or compression, or both
+    # ANR1794W IBM Spectrum Protect SAN discovery is disabled by options. 
+    # ANR1959I Status monitor collecting current data at TIME
+    # ANR1960I Status monitor finished collecting data at TIME and will sleep for 5 minutes. 
+    # ANR1999I QUERY REPLRULE completed successfully. 
+    # ANR2017I Administrator SERVER_CONSOLE issued command: SHOW MONVARS 
+    # ANR2023E QUERY ACTLOG: Extraneous parameter
+    # ANR2034E QUERY REPLFAILURES: No match found using this criteria. 
+    # ANR2562I Automatic event record deletion started. 
+    # ANR2563I Removing event records dated prior to DATE
+    # ANR2565I 0 schedules for immediate client actions have been deleted. 
+    # ANR2579E Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)
+    # ANR2662I (*) "Query schedule format=standard" displays an asterisk in the day of week column for enhanced schedules.  The period column is blank
+    # ANR8213E Socket 108 aborted due to send error; error 104
+    # ANR8583E An SSL socket-initialization error occurred on session nnnnn.  The GSKit return code is 420 GSK_ERROR_SOCKET_CLOSED.
+    # ANR8592I Session nnnnn connection is using protocol TLSV13, cipher specification TLS_AES_256_GCM_SHA384, certificate TSM Self-Signed Certificate
+    # ANR8601E During the SSL handshake, the certificate exchanged between the server and remote host 178-79-139-171.ip.linodeusercontent.com:57090 was not validated
+    ErrorsToAvoid='ANR0403I|ANR0405I|ANR0406I|ANR0407I|ANR0440W|ANR0479W|ANR0481W|ANR0482W|ANR0944E|ANR0950I|ANR0951I|ANR1794W|ANR1959I|ANR1960I|ANR1999I|ANR2017I|ANR2023E|ANR2034E|ANR2562I|ANR2563I|ANR2565I|ANR2579E|ANR2662I|ANR8213E|ANR8583E|ANR8592I|ANR8601E'
+    echo "Errors on $SELECTION $Today" > "$ErrorFile"
     echo "" >> "$ErrorFile"
     grep -Ev "$ErrorsToAvoid" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E" | grep -Eo "\bAN[^\)]*)" | awk '{print $1" "$NF}' | sed 's/)//' | sort | uniq -c >> "$ErrorFile"
     # The following list of errors have been encountered (and might thus be of some interest):
@@ -465,12 +493,13 @@ server_info
 
 # Get the activity log for today (saves time to do it only one)
 # Do not include 'ANR2017I Administrator ADMIN issued command:' and a bunch of other stuff
-ActlogToday="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -Ev "ANR2017I|ANR8592I|ANR0407I|ANR0405|ANR8592II|ANR2662I|ANR2165E|ANR2034E|ANR0406I|ANR0403I|ANR1999I|ANR1959I|ANR0944E|ANR1960I|ANR0950I|ANR8601E|ANR8583E|ANR0440W")"
+dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -Ev "ANR2017I|ANR8592I|ANR0407I|ANR0405|ANR8592II|ANR2662I|ANR2165E|ANR2034E|ANR0406I|ANR0403I|ANR1999I|ANR1959I|ANR0944E|ANR1960I|ANR0950I|ANR8601E|ANR8583E|ANR0440W" > "$ActlogToday"
 # Get all concluded executions (ANR2579E or ANR2507I) the last $ActLogLength. This will save a lot of time later on
 AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
 
 # Get the errors experienced today
 errors_today
+
 
 echo "To: $RECIPIENT" > $ReportFileHTML
 echo "Subject: Backup report for ${SELECTION%; }" >> $ReportFileHTML
@@ -494,7 +523,7 @@ do
     CriticalErrorMsg=""
 
     # Go for the entire act log instead; if not, we will not get the infamous ANR2579E errors or the ANR2507I conclusion
-    echo "$ActlogToday" | grep -Ei "\s$client[ \)]" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANE4042E" > "$ClientFile"
+    grep -Ei "\s$client[ \)]" "$ActlogToday" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANE4042E|ANE4081E" > "$ClientFile"
 
     # Get client info (version, IP-address and such)
     client_info
@@ -542,3 +571,5 @@ if $SCP; then
     scp "$scp_file" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${SELECTION/_/\/}/index.html"
     rm "$scp_file"
 fi
+
+rm "$ActlogToday"
