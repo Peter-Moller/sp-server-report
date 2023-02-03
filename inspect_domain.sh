@@ -620,4 +620,4 @@ if $SCP; then
     rm "$scp_file"
 fi
 
-#rm "$ActlogToday"
+rm "$ActlogToday"
