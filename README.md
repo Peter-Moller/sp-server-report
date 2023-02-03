@@ -81,15 +81,14 @@ Examples of two lines:
 
 ### Examples
 
-Example 1:  
-_(Please note that the columns are sortable)_
+Example 1. A web page with the report of the entire domain:
 
 ![examples of inspect_all_clients](example_of_inspect_all_backup-report.png)
 
-Example 2:
+Example 2. A web page reporting a single node:
 
 ![examples of a single client](example_of_backup-report_one_client.png)
 
-Example 3:
+Example 3. The error report page: 
 
 ![example of an error report](example_of_error-report.png)
