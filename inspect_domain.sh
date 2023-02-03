@@ -141,6 +141,7 @@ errors_today() {
         LineHighlight="style=\"background-color: #EBEBEB\""
         LineNoHighlight="style=\"background-color: white\""
         # Traverse this list and state what error it is and the clients affected
+        # Make one table per error
         for ERROR in $ErrorsInTheDailyLog
         do
             LineNo=0
@@ -149,8 +150,12 @@ errors_today() {
             CS_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f5)"                                                                                                                      # Ex: CS_Error_URL='https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html'
             IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>IBM-link</a>"                                                                                                                   # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
-            HeadLine="			<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> ($IBM_Link $NewWindowIcon)<br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
-            echo "$HeadLine" >> "$ErrorFileHTML"
+            TableHead="            <table id=\"errors\">"
+            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> ($IBM_Link $NewWindowIcon)<br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
+            echo "				<thead>" >> "$ErrorFileHTML"
+            echo "$TableHeadLine" >> "$ErrorFileHTML"
+            echo "				</thead>" >> "$ErrorFileHTML"
+            echo "				<tbody>" >> "$ErrorFileHTML"
             # Get a list of nodes with the error we are currently looking at:
             CLIENTS_with_this_error="$(grep $ERROR "$ActlogToday" | grep -Eo "[Nn]ode:?\ [A-Z-]*" | awk '{print $NF}' | sort -u | tr '\n' ' ')"                                               # Ex: CLIENTS_with_this_error='CS-CHRISTOPHR CS-PMOLINUX '
             # Loop through the client list:
@@ -168,19 +173,14 @@ errors_today() {
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
                 EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
-                
-                # Set backgroupd color if LineNo is odd:
-                if [ $((LineNo%2)) -ne 0 ]; then
-                    LineColor="$LineHighlight"
-                else
-                    LineColor="$LineNoHighlight"
-                fi
-                LocalLine="			<tr $LineColor><td align=\"right\">$(printf "%'d" $NumUserErrors)&nbsp;</td><td>$Node</td><td><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a></td><td>$NodeOS</td></tr>"
+                LocalLine="				<tr><td align=\"right\" width=\"15%\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign</td><td width=\"25%\">$Node</td><td width=\"30%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a></td><td width=\"30%\">$NodeOS</td></tr>"
                 # Increase LineNo
                 let LineNo=$((LineNo+1))
                 echo "$LocalLine" >> "$ErrorFileHTML"
             done
-            echo "			<tr $LineNoHighlight><td colspan=\"4\">&nbsp;</td></tr>" >> "$ErrorFileHTML"
+            ##echo "			<tr $LineNoHighlight><td colspan=\"4\">&nbsp;</td></tr>" >> "$ErrorFileHTML"
+            echo "				</tbody>" >> "$ErrorFileHTML"
+            echo "			</table>" >> "$ErrorFileHTML"
         done
     else
         echo "			<tr $LineNoHighlight><th colspan=\"4\">No errors found in the domain “$DOMAIN”.</th></tr>" >> "$ErrorFileHTML"

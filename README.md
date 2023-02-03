@@ -5,11 +5,11 @@ There are two scripts:
 `inspect_one_client.sh`  
 `inspect_domain.sh`
 
-The first is intended for an interactive investigation of one specific node. A node name is required and an optional number, specifying the number of days back to examine, may be given.  
-The second script examines all clients in a given policy domain (required parameter). The script produces a web page for the clients in the domain and also a file for every client – see 
-examples below. This script is intended to be consumed by admins and end-users alike. The overview web page is sent by email to a given recipient and the generated files may be published 
-on a web server. An error-page is also generated containing _all_ errors that have occurred; the overview-report (from `inspect_domain.sh`) only contains the most common errors. This 
-error-report is (currently) not send by email but only uploaded to a web page (if upload is selected). 
+The first is intended for an interactive investigation of one specific node. A node name is required and an optional number, specifying the number of days back to examine, may be given.
+
+The second script examines all clients in a given policy domain (required parameter). The script produces a web page for the clients in the domain and also a file for every client – see examples below. This script is intended to be consumed by admins and end-users alike. The overview web page is sent by email to a given recipient and the generated files may be published 
+on a web server.  
+An error-page is also generated containing _all_ errors that have occurred; the overview-report from `inspect_domain.sh` only contains the most common errors. This error-report is (currently) not send by email but only uploaded to a web page – if upload is selected. The error report creates clickable email links with descriptions for the errors encountered. 
 
 Both scripts are assumed to be run on a linux client with an installed client (or rather, the `dsmadmc` binary) and requires a file, `tsm_secrets.env` (excluded from git; details below). 
 In that file, the `id` and `password` to be used by `dsmadmc` must be specified. The file can reside in the project directory or in the user home directory.
@@ -18,7 +18,7 @@ The scripts look for errors `ANE4007E`, `ANR2579E`, `ANR0424W` and `ANE4042E` an
 commonly see. A more robust, and general, solution might be developed in the future.
 
 
-### inspect\_one\_client.sh
+## inspect\_one\_client.sh
 It takes two parameters:
 
   1. Name of the client to look for
@@ -43,16 +43,18 @@ Examples:
 
 -----
 
-### inspect\_domain.sh
+## inspect\_domain.sh
 
 This script takes as argument a space separated list of one or more policy domains and builds a list of clients that are associated with those domains.  
 This list of clients is traversed and information (specified below) is gathered and three reports are created:
   1. a web page as in _example 1_ below, listing all client in the domain. This is intended to be viewed by admins and end users alike
   2. a web page for each client, see _example 2_
-  3. a web page containing all errors 
+  3. a web page containing all errors, see _example 3_
 
 If a given domain is not valid, it will be noticed as such. If a client is present in multiple domains, it will be processed only once. The list of clients is processed alphabetically. The 
 table is bort sortable and searchable.
+
+### tsm_secrets.env
 
 The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secrets.env`, containing the following:  
 | Key                                                  | Explanation |
@@ -68,12 +70,18 @@ The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secr
 | `export PUBLICATION_URL="https://com.url.edu/path"`  | URL for the finished report (included in the email) |
 | `export STORAGE_POOL="STORAGE_POOL_1"`               | Given this, size and usage of the Storage Pool will be presented |
 
-Also, the file `sp_errors.txt` is required for the error report. It consists of a number of rows with the following content:  
+
+### Error reporting
+
+The file `sp_errors.txt` is required for the error report. It consists of a number of rows with the following content:  
 `Message Code` `|` `DISREGARD` or `VALID` `|` `Explanation` `|` `URL to IBM` `|` `URL to our own page regarding the error`  
-Lines marked woth `DISREGARD` will be disregarded for presentation. I find it useful, however, to _know_ what I am disregarding.  
+Lines marked woth `DISREGARD` will be disregarded for presentation. I find it useful, however, to _know_ what I am disregarding.
+
+The script gets the contact name and email address for the nodes and creates a clickable email link with some basic information about the error that can easily be sent to the user.
+
 Also note that the IBM-links contain the text `SERVERVER`: it will be replaced with the actual version the server in question is running (such as `8.1.16`).
 
-Examples of two lines:  
+Here are two example lines from `sp_errors.txt`:  
 `ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||`  
 `ANR2579E|VALID|Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html`
 
