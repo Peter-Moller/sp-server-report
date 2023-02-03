@@ -70,7 +70,10 @@ The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secr
 
 Also, the file `sp_errors.txt` is required for the error report. It consists of a number of rows with the following content:  
 `Message Code` `|` `DISREGARD` or `VALID` `|` `Explanation` `|` `URL to IBM` `|` `URL to our own page regarding the error`  
-Examples:  
+Lines marked woth `DISREGARD` will be disregarded for presentation. I find it useful, however, to _know_ what I am disregarding.  
+Also note that the IBM-links contain the text `SERVERVER`: it will be replaced with the actual version the server in question is running (such as `8.1.16`).
+
+Examples of two lines:  
 `ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||`  
 `ANR2579E|VALID|Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html`
 
