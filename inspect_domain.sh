@@ -119,26 +119,26 @@ errors_today() {
     # Error | (DISREGARD) | Explanation | Email_text
 
     cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/DATE/$Today/g; s/TIME/$Now/" > "$ErrorFileHTML"
-    # Get a list of the errors that have occurred today:
-    #ErrorsInTheDailyLog="$(grep -Ev "$ErrorsToIgnore" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E" | egrep -o "\bAN[^\)]*)" | awk '{print $1}' | sort -u)"
-    ErrorsInTheDailyLog="$(grep -E "AN[ER][0-9]{4}E" "$ActlogToday" | egrep -o "\bAN[^\)]*)" | awk '{print $1}' | sort -u)"
-    # Ex: ErrorsInTheDailyLog='ANE4005E
-    #                          ANE4007E
-    #                          ANE4037E'
-    ##echo "" >> "$ErrorFile"
-    
-    ##grep -Ev "$ErrorsToAvoid" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E" | grep -Eo "\bAN[^\)]*)" | awk '{print $1" "$NF}' | sed 's/)//' | sort | uniq -c >> "$ErrorFile"
 
     # Check to see if any clients in the DOMAIN have had errors today
     # If not, we need to say that “All is well”
     ClientPipeList="$(echo "${CLIENTS// /|}" | sed 's/^|//; s/|$//')"                                                                                                                         # Ex: ClientPipeList='CS-COURSEGIT|CS-DOCKER|CS-DOKUWIKI|...'
-    if [ -n "$(grep -E "$ClientPipeList" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E")" ]; then
+
+    # Get a list of the errors that have occurred today [for the clients in this domain]:
+    ErrorsInTheDailyLog="$(grep -E "AN[ER][0-9]{4}E" "$ActlogToday" | grep -E "$ClientPipeList" | grep -Eo "\bAN[^\)]*)" | awk '{print $1}' | sort -u)"
+    # Ex: ErrorsInTheDailyLog='ANE4005E
+    #                          ANE4007E
+    #                          ANE4037E'
+
+    # Go thropugh the list of errors [if there are any]
+    if [ -n "$ErrorsInTheDailyLog" ]; then
         # Set standard values for email link:
         EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (&#8220;REASON&#8221;).%0A"
         EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
         EmailLinkTextIBM="Here is a web page at IBM that descripes the error in more detail:%0A"
         EmailNoLinkText="We do not have a deeper description of this error."
         EmailEndText="Please contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff"
+
         # Traverse this list and state what error it is and the clients affected
         # Make one table per error
         for ERROR in $ErrorsInTheDailyLog
@@ -160,8 +160,8 @@ errors_today() {
             echo "$TableHeadLine" >> "$ErrorFileHTML"
             echo "				</thead>" >> "$ErrorFileHTML"
             echo "				<tbody>" >> "$ErrorFileHTML"
-            # Get a list of nodes with the error we are currently looking at:
-            CLIENTS_with_this_error="$(grep $ERROR "$ActlogToday" | grep -Eo "[Nn]ode:?\ [A-Z-]*" | awk '{print $NF}' | sort -u | tr '\n' ' ')"                                               # Ex: CLIENTS_with_this_error='CS-CHRISTOPHR CS-PMOLINUX '
+            # Get a list of nodes [in this domain] with the error we are currently looking at:
+            CLIENTS_with_this_error="$(grep $ERROR "$ActlogToday" | grep -E "$ClientPipeList" | grep -Eo "[Nn]ode:?\ [A-Z0-9-]*" | awk '{print $NF}' | sort -u | tr '\n' ' ')"                # Ex: CLIENTS_with_this_error='CS-CHRISTOPHR CS-PMOLINUX '
             # Loop through the client list:
             for Node in $CLIENTS_with_this_error
             do
