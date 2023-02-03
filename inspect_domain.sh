@@ -65,7 +65,8 @@ fi
 
 # Some basic stuff
 Today="$(date +%F)"                                                  # Ex: Today=2011-11-11
-Now=$(date +%s)                                                      # Ex: Now=1662627432
+NowEpoch=$(date +%s)                                                 # Ex: NowEpoch=1662627432
+Now="$(date +%H:%M)"                                                 # Ex: Now=15:40
 MulSign="&#215;"                                                     # ×
 OutDirPrefix="/var/tmp/tsm"
 OutDir="$OutDirPrefix/${DOMAIN/_/\/}"                             # Ex: OutDir=/var/tmp/tsm/cs/clients
@@ -117,7 +118,7 @@ errors_today() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
-    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g" | sed "s/DATE/$Today/g" > "$ErrorFileHTML"
+    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/DATE/$Today/g; s/TIME/$Now/" > "$ErrorFileHTML"
     # Get a list of the errors that have occurred today:
     #ErrorsInTheDailyLog="$(grep -Ev "$ErrorsToIgnore" "$ActlogToday" | grep -E "AN[ER][0-9]{4}E" | egrep -o "\bAN[^\)]*)" | awk '{print $1}' | sort -u)"
     ErrorsInTheDailyLog="$(grep -E "AN[ER][0-9]{4}E" "$ActlogToday" | egrep -o "\bAN[^\)]*)" | awk '{print $1}' | sort -u)"
@@ -138,8 +139,6 @@ errors_today() {
         EmailLinkTextIBM="Here is a web page at IBM that descripes the error in more detail:%0A"
         EmailNoLinkText="We do not have a deeper description of this error."
         EmailEndText="Please contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff"
-        LineHighlight="style=\"background-color: #EBEBEB\""
-        LineNoHighlight="style=\"background-color: white\""
         # Traverse this list and state what error it is and the clients affected
         # Make one table per error
         for ERROR in $ErrorsInTheDailyLog
@@ -148,10 +147,10 @@ errors_today() {
             ErrorText="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f3)"                                                                                                                         # Ex: ErrorText='Error processing '\''X'\'': file not found'
             IBM_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f4 | sed "s_SERVERVER_${ServerVersion}_")"                                                                               # Ex: IBM_Error_URL='https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E'
             CS_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f5)"                                                                                                                      # Ex: CS_Error_URL='https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html'
-            IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>IBM-link</a>"                                                                                                                   # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
+            IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                                # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
-            TableHead="            <table id=\"errors\">"
-            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> ($IBM_Link $NewWindowIcon)<br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
+            echo "            <table id=\"errors\" style=\"margin-top: 1rem\">" >> "$ErrorFileHTML"
+            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> <div class=\"right\">$IBM_Link $NewWindowIcon</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
             echo "				<thead>" >> "$ErrorFileHTML"
             echo "$TableHeadLine" >> "$ErrorFileHTML"
             echo "				</thead>" >> "$ErrorFileHTML"
@@ -173,26 +172,30 @@ errors_today() {
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
                 EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
-                LocalLine="				<tr><td align=\"right\" width=\"15%\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign</td><td width=\"25%\">$Node</td><td width=\"30%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a></td><td width=\"30%\">$NodeOS</td></tr>"
+                LocalLine="				<tr><td align=\"right\" width=\"15%\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td><td width=\"25%\">$Node</td><td width=\"30%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a></td><td width=\"30%\">$NodeOS</td></tr>"
                 # Increase LineNo
                 let LineNo=$((LineNo+1))
                 echo "$LocalLine" >> "$ErrorFileHTML"
             done
-            ##echo "			<tr $LineNoHighlight><td colspan=\"4\">&nbsp;</td></tr>" >> "$ErrorFileHTML"
+            ##echo "			<tr><td colspan=\"4\">&nbsp;</td></tr>" >> "$ErrorFileHTML"
             echo "				</tbody>" >> "$ErrorFileHTML"
             echo "			</table>" >> "$ErrorFileHTML"
         done
     else
-        echo "			<tr $LineNoHighlight><th colspan=\"4\">No errors found in the domain “$DOMAIN”.</th></tr>" >> "$ErrorFileHTML"
+        echo "			<table><tr><td>No errors found in the domain “$DOMAIN”.</td></tr>" >> "$ErrorFileHTML"
     fi
     
     # Put the last lines in the file:
-    echo "		</table>" >> "$ErrorFileHTML"
     echo "	</section>" >> "$ErrorFileHTML"
-    echo "	<footer>" >> "$ErrorFileHTML"
-    echo "	  <p>&nbsp;</p>" >> "$ErrorFileHTML"
-    echo "		<p align=\"right\"><em>CS IT staff<br>$(date +%H:%M)</em></p>" >> "$ErrorFileHTML"
-    echo "	</footer>" >> "$ErrorFileHTML"
+    echo "	<section>" >> "$ErrorFileHTML"
+    echo "    		<div class=\"flexbox-container\">" >> "$ErrorFileHTML"
+    echo "			<div id=\"box-explanations\">" >> "$ErrorFileHTML"
+    echo "	            <strong>Legend:</strong>" >> "$ErrorFileHTML"
+    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-ane-messages\">ANE: Client events logged to the server</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-anr-messages\">ANR: Server common and platform-specific messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">ANS: Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "		    </div>" >> "$ErrorFileHTML"
+    echo "		</div>" >> "$ErrorFileHTML"
     echo "	</div>" >> "$ErrorFileHTML"
     echo "</body>" >> "$ErrorFileHTML"
     echo "</html>" >> "$ErrorFileHTML"
@@ -290,11 +293,11 @@ backup_result() {
         # Look for ANR2507I in the total history
         LastSuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2507I | tail -1 | awk '{print $1" "$2}')"                                                     # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
         EpochtimeLastSuccessful=$(date -d "$LastSuccessfulBackup" +"%s")                                                                                                                      # Ex: EpochtimeLastSuccessful=1661709663
-        LastSuccessfulNumDays=$(echo "$((Now - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                       # Ex: LastSuccessfulNumDays=11
+        LastSuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                       # Ex: LastSuccessfulNumDays=11
         # The same for ANR2579E:
         LastUnsuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2579E | tail -1 | awk '{print $1" "$2}')"                                                   # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
         EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                                                                            # Ex: EpochtimeLastUnsuccessful=1666094861
-        LastUnsuccessfulNumDays=$(echo "$((Now - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                             # Ex: LastSuccessfulNumDays=1
+        LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                             # Ex: LastSuccessfulNumDays=1
         # If there is a successful backup in the total history, get when that was
         if [ -n "$LastSuccessfulBackup" ]; then
             if [ $LastSuccessfulNumDays -eq 0 ]; then
@@ -322,7 +325,7 @@ backup_result() {
             ErrorMsg="Last contact: $(echo "$ClientLastAccess" | awk '{print $1}'); "
             # Get the number of days since the last contact
             LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
-            DaysSinceLastContact=$(echo "scale=0; $((Now - LastContactEpoch)) / 86400" | bc -l)
+            DaysSinceLastContact=$(echo "scale=0; $((NowEpoch - LastContactEpoch)) / 86400" | bc -l)
             # Update 2022-10-23: I now know how to get the last date of backup: 
             # Do a 'query filespace $client f=d' and look for "Days Since Last Backup Completed:"
             # Note that it will be one day per filespace (file system)
@@ -548,7 +551,7 @@ AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "qu
 
 # Get the errors experienced today
 errors_today
-
+exit 0
 echo "To: $RECIPIENT" > $ReportFileHTML
 echo "Subject: Backup report for ${DOMAIN%; }" >> $ReportFileHTML
 echo "Content-Type: text/html" >> $ReportFileHTML
@@ -594,7 +597,7 @@ done
 
 # Calculate elapsed time
 Then=$(date +%s)
-ElapsedTime=$(( Then - Now ))
+ElapsedTime=$(( Then - NowEpoch ))
 REPORT_TIME="$(date +%H:%M)"
 #REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m $((ElapsedTime%60))s"
 REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
