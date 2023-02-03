@@ -1,0 +1,34 @@
+ANR0403I|DISREGARD|Session nnnnn ended for node XX||
+ANR0405I|DISREGARD|Session nnnnn ended for administrator ADMIN||
+ANR0406I|DISREGARD|Session nnnnn started for node XX||
+ANR0407I|DISREGARD|Session nnnnn started for administrator ADMIN (SSL tsm4.cs.lth.se)||
+ANR0440W|DISREGARD|Protocol error on session nnnnn for node Unknown () - invalid verb header received||
+ANR0479W|DISREGARD|Session nnnnn for server 178-79-139-171.ip.linodeusercontent.com () terminated - connection with server severed||
+ANR0481W|DISREGARD|Session nnnnn for node XX was terminated. The client did not respond within 60 seconds||
+ANR0482W|DISREGARD|Session nnnnn for node XX terminated - idle for more than 15 minutes||
+ANR0944E|DISREGARD|QUERY PROCESS: No active processes found||
+ANR0950I|DISREGARD|Session nnnnn for node XX is using inline server data deduplication or inline compression||
+ANR0951I|DISREGARD|Session nnnnn for node XX processed nn files by using inline data deduplication or compression, or both||
+ANR1794W|DISREGARD|IBM Spectrum Protect SAN discovery is disabled by options||
+ANR1959I|DISREGARD|Status monitor collecting current data at TIME||
+ANR1960I|DISREGARD|Status monitor finished collecting data at TIME and will sleep for 5 minutes||
+ANR1999I|DISREGARD|QUERY REPLRULE completed successfully||
+ANR2017I|DISREGARD|Administrator SERVER_CONSOLE issued command: SHOW MONVARS||
+ANR2023E|DISREGARD|QUERY ACTLOG: Extraneous parameter||
+ANR2034E|DISREGARD|QUERY REPLFAILURES: No match found using this criteria||
+ANR2165E|DISREGARD|Command: Invalid begin date - date||
+ANR2562I|DISREGARD|Automatic event record deletion started||
+ANR2563I|DISREGARD|Removing event records dated prior to DATE||
+ANR2565I|DISREGARD|0 schedules for immediate client actions have been deleted||
+ANR2662I|DISREGARD|(*) "Query schedule format=standard" displays an asterisk in the day of week column for enhanced schedules. The period column is blank||
+ANR8213E|DISREGARD|Socket 108 aborted due to send error; error 104||
+ANR8583E|DISREGARD|An SSL socket-initialization error occurred on session nnnnn. The GSKit return code is 420 GSK_ERROR_SOCKET_CLOSED.||
+ANR8592I|DISREGARD|Session nnnnn connection is using protocol TLSV13, cipher specification TLS_AES_256_GCM_SHA384, certificate TSM Self-Signed Certificate||
+ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||
+ANR2579E|VALID|Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html
+ANE4005E|VALID|Error processing 'X': file not found|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E|
+ANE4007E|VALID|Error processing 'X': access to the object is denied|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4007E|https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html|
+ANE4037E|VALID|Object 'X' changed during processing. Object skipped|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4037E|
+ANE4042E|VALID|Object name 'X' contains one or more unrecognized characters and is not valid|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4042E|https://fileadmin.cs.lth.se/intern/backup/ANE4042E.html
+ANE4047E|VALID|There is a read error on 'X'. The file is skipped|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4047E|
+ANE4081E|VALID|Error processing 'Y': file space type is not supported|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4081E|https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html
