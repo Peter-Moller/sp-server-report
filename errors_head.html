@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Errors in cs_clients (2023-02-02)</title>
+    <style type="text/css" media="screen">
+    * { margin: 0px 0px 0px 0px; padding: 0px 0px 0px 0px; }
+    body, html {
+        padding: 3px 3px 3px 3px;
+        background-color: #D8DBE2;
+        font-family: Frutiger Lt Std, Frutiger, Verdana, sans-serif;
+        text-align: left;
+    }
+    div.main_page {
+        position: relative;
+        display: table;
+        margin-bottom: 3px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 10px 30px 10px 30px;
+        border-width: 0px;
+        border-color: #212738;
+        border-style: solid;
+        background-color: #FFFFFF;
+        text-align: left;
+    }
+    code, kbd, pre, samp {
+        font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+        font-size: 80%
+    }
+    code {
+        padding: 2px 4px;
+        color: #c7254e;
+        background-color: #f9f2f4;
+        border-radius: 4px
+    }
+    .head_fat { font-size: 120%; font-style: bold; color: #df1717; }
+    .head_explain { font-style: italic; color: #df1717; font-family: Menlo, Monaco, Consolas, "Courier New", monospace; }
+    ol { margin-left: 2em }
+    ul { margin-left: 2em }
+    li { margin-top: 7px }
+    section { margin-top: 20px; margin-bottom: 20px; }
+    p { word-wrap: break-word; }
+    #errors { border-collapse: collapse; width: 95%; border-spacing: 0px; ;margin-left:auto;margin-right:auto; }
+    #errors td { border: 0px solid #ddd; padding: 4px; vertical-align: top; }
+    #errors th { color: black; padding: 4px; text-align: left; background-color: #bad8e1; }
+    #errors tr:hover { background-color: #9c6114; color: white }
+	#errors tr:nth-child(even) { background-color: white; color: black; }
+	#errors tr:nth-child(odd) { background-color: #EBEBEB; }
+	.flexbox-container { display: flex; justify-content: center; }
+	#box-explanations {
+			background: #f0eee5;
+			background-color: #000080; 
+			text-align: center;
+			color: white;
+		    border-radius: 10px;
+		    margin: 10px;
+		    padding-left: 0px;
+			padding-right: 0px;
+			padding-top: 15px;
+			padding-bottom: 10px;
+			width: 100%;
+		}
+        @font-face {
+			font-family: 'Glyphicons Halflings';
+			src: url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.eot);
+			src: url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.eot?#iefix) format('embedded-opentype'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.woff2) format('woff2'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.woff) format('woff'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.ttf) format('truetype'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.svg#glyphicons_halflingsregular) format('svg')
+		}
+		.glyphicon {
+			position: relative;
+			top: 1px;
+			display: inline-block;
+			font-family: 'Glyphicons Halflings';
+			font-style: normal;
+			font-weight: 400;
+            font-size: 90%;
+			line-height: 1;
+			-webkit-font-smoothing: antialiased;
+			-moz-osx-font-smoothing:grayscale
+		}
+		.glyphicon-new-window:before { content: "\e164" }
+    </style>
+</head>
+<body>
+    <div class="main_page">
+        <section>
+			<div class="flexbox-container">
+				<div id="box-explanations">
+		            <h3>Spectrum Protect</h3>
+        		    <h1>Errors encountered</h1>
+		            <h4>DATE</h4>
+			    </div>
+			</div>
+        </section>
+        <section>
+            <p align="center">Numbers of errors and client affected for domain “DOMAIN”.</p>
+            <p>&nbsp;</p>
+            <table id="errors">
