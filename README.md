@@ -92,3 +92,7 @@ Example 2. A web page reporting a single node:
 Example 3. The error report page: 
 
 ![example of an error report](example_of_error-report.png)
+
+Example 4. A sample email from the error report:
+
+![example of an error email](example_of_error_email.png)
