@@ -150,7 +150,12 @@ errors_today() {
             IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                                # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
             echo "            <table id=\"errors\" style=\"margin-top: 1rem\">" >> "$ErrorFileHTML"
-            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> <div class=\"right\">$IBM_Link $NewWindowIcon</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
+            if [ -n "$CS_Error_URL" ]; then
+                InfoLink="<a href=\"$CS_Error_URL\">Local info.</a> $NewWindowIcon<br>$IBM_Link $NewWindowIcon"
+            else
+                InfoLink="$IBM_Link $NewWindowIcon"
+            fi
+            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> <div class=\"right\">$InfoLink</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
             echo "				<thead>" >> "$ErrorFileHTML"
             echo "$TableHeadLine" >> "$ErrorFileHTML"
             echo "				</thead>" >> "$ErrorFileHTML"
@@ -177,12 +182,11 @@ errors_today() {
                 let LineNo=$((LineNo+1))
                 echo "$LocalLine" >> "$ErrorFileHTML"
             done
-            ##echo "			<tr><td colspan=\"4\">&nbsp;</td></tr>" >> "$ErrorFileHTML"
             echo "				</tbody>" >> "$ErrorFileHTML"
             echo "			</table>" >> "$ErrorFileHTML"
         done
     else
-        echo "			<table><tr><td>No errors found in the domain “$DOMAIN”.</td></tr>" >> "$ErrorFileHTML"
+        echo "			<p><strong>No errors found in the domain “$DOMAIN”.</strong></p>" >> "$ErrorFileHTML"
     fi
     
     # Put the last lines in the file:
@@ -551,7 +555,7 @@ AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "qu
 
 # Get the errors experienced today
 errors_today
-exit 0
+
 echo "To: $RECIPIENT" > $ReportFileHTML
 echo "Subject: Backup report for ${DOMAIN%; }" >> $ReportFileHTML
 echo "Content-Type: text/html" >> $ReportFileHTML
