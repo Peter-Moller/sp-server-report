@@ -47,7 +47,8 @@ for item in $DOMAIN; do
         #                  CS-TEST'
         CLIENTStmp+=$'\n'
         NumClientsTmp=$(echo "$CLIENTStmp" | sort -u | tr '\n' " " | wc -w)  # Ex: NumClients=5
-        Explanation+="“$item ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'), $NumClientsTmp nodes) & "
+        ##Explanation+="“$item ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'), $NumClientsTmp nodes) & "
+        Explanation+="“$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')” ($NumClientsTmp nodes) & "
         # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
         Explanation+="Non-existing policy domain: $item & "
@@ -64,13 +65,14 @@ fi
 
 
 # Some basic stuff
-Today="$(date +%F)"                                                  # Ex: Today=2011-11-11
-NowEpoch=$(date +%s)                                                 # Ex: NowEpoch=1662627432
-Now="$(date +%H:%M)"                                                 # Ex: Now=15:40
-MulSign="&#215;"                                                     # ×
+Today="$(date +%F)"                                                       # Ex: Today=2011-11-11
+NowEpoch=$(date +%s)                                                      # Ex: NowEpoch=1662627432
+Now="$(date +%H:%M)"                                                      # Ex: Now=15:40
+MulSign="&#215;"                                                          # ×
 OutDirPrefix="/var/tmp/tsm"
-OutDir="$OutDirPrefix/${DOMAIN/_/\/}"                             # Ex: OutDir=/var/tmp/tsm/cs/clients
+OutDir="$OutDirPrefix/${DOMAIN/_/\/}"                                     # Ex: OutDir=/var/tmp/tsm/cs/clients
 # Create the OutDir if it doesn't exist:
+# NOTE: it must be created manually on the web server (if it is used)!!!
 if [ ! -d $OutDir ]; then
     mkdir -p $OutDir
 fi
@@ -81,12 +83,12 @@ HTML_Template_End="$ScriptDirName"/report_end.html
 HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
 HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
 HTML_Error_Head="$ScriptDirName"/errors_head.html
-### DECISION: should we have date in the file name for the overview table?
-### (it will be removed when copied to the web server)
+ErrorIcon="&nbsp;&#x1F4E7;"                                               # Ex: 📧
 ReportFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.html"             # Ex: ReportFileHTML='/var/tmp/tsm/cs/servers_2022-11-11.html'
 ErrorFile="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.errors"                # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11.errors'
 ErrorFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}_errors.html"       # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11_errors.html'
 SP_ErrorFile="$ScriptDirName"/sp_errors.txt
+MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -133,9 +135,9 @@ errors_today() {
     # Go thropugh the list of errors [if there are any]
     if [ -n "$ErrorsInTheDailyLog" ]; then
         # Set standard values for email link:
-        EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (&#8220;REASON&#8221;).%0A"
+        EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (&#8220;REASON&#8221;).%0A(In the local log file, you may see this problem as &#8220;ANS...&#8221; but it is the same problem.)%0A"
         EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
-        EmailLinkTextIBM="Here is a web page at IBM that descripes the error in more detail:%0A"
+        EmailLinkTextIBM="Here is a web page at IBM that describes the error in more detail:%0A"
         EmailNoLinkText="We do not have a deeper description of this error."
         EmailEndText="Please contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff"
 
@@ -147,15 +149,30 @@ errors_today() {
             ErrorText="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f3)"                                                                                                                         # Ex: ErrorText='Error processing '\''X'\'': file not found'
             IBM_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f4 | sed "s_SERVERVER_${ServerVersion}_")"                                                                               # Ex: IBM_Error_URL='https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E'
             CS_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f5)"                                                                                                                      # Ex: CS_Error_URL='https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html'
-            IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                                # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
+            if [ -n "$IBM_Error_URL" ]; then
+                IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                            # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
+            else
+                IBM_Link=""
+            fi
+            if [ -n "$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f2 | grep -v REPORTED)" ]; then
+                DisregardText="<span style=\"color: #555\"><em>(not reported in the client overview)</em></span>"
+                ErrorHeadText="<strong><em>$ERROR</em></strong>"
+            else
+                DisregardText=""
+                ErrorHeadText="<strong>$ERROR</strong>"
+            fi
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
             echo "            <table id=\"errors\" style=\"margin-top: 1rem\">" >> "$ErrorFileHTML"
             if [ -n "$CS_Error_URL" ]; then
                 InfoLink="<a href=\"$CS_Error_URL\">Local info.</a> $NewWindowIcon<br>$IBM_Link $NewWindowIcon"
             else
-                InfoLink="$IBM_Link $NewWindowIcon"
+                if [ -n "$IBM_Link" ]; then
+                    InfoLink="$IBM_Link $NewWindowIcon"
+                else
+                    InfoLink=""
+                fi
             fi
-            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\"><strong>$ERROR:</strong></span> <div class=\"right\">$InfoLink</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
+            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\">$ErrorHeadText</span> $DisregardText<div class=\"right\">$InfoLink</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
             echo "				<thead>" >> "$ErrorFileHTML"
             echo "$TableHeadLine" >> "$ErrorFileHTML"
             echo "				</thead>" >> "$ErrorFileHTML"
@@ -177,7 +194,11 @@ errors_today() {
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
                 EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
-                LocalLine="				<tr><td align=\"right\" width=\"15%\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td><td width=\"25%\">$Node</td><td width=\"30%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a></td><td width=\"30%\">$NodeOS</td></tr>"
+                TableFirst_Cell="<td width=\"13%\" align=\"right\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td>"             
+                TableSecondCell="<td width=\"22%\">$Node</td>"
+                TableThird_Cell="<td width=\"35%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a>$ErrorIcon</td>"
+                TableFourthCell="<td width=\"30%\">$NodeOS</td>"
+                LocalLine="				<tr>${TableFirst_Cell}${TableSecondCell}${TableThird_Cell}${TableFourthCell}</tr>"
                 # Increase LineNo
                 let LineNo=$((LineNo+1))
                 echo "$LocalLine" >> "$ErrorFileHTML"
@@ -189,12 +210,15 @@ errors_today() {
         echo "			<p><strong>No errors found in the domain “$DOMAIN”.</strong></p>" >> "$ErrorFileHTML"
     fi
     
-    # Put the last lines in the file:
+    # Put the last lines in the fil     e:
+    echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
+    echo "    <p align=\"center\"><a href=\"$MainURL\">Back to overview.</a></p>" >> "$ErrorFileHTML"
+    echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
     echo "	</section>" >> "$ErrorFileHTML"
     echo "	<section>" >> "$ErrorFileHTML"
     echo "    		<div class=\"flexbox-container\">" >> "$ErrorFileHTML"
     echo "			<div id=\"box-explanations\">" >> "$ErrorFileHTML"
-    echo "	            <strong>Legend:</strong>" >> "$ErrorFileHTML"
+    echo "	            <p><strong>Messages, return codes, and error codes:</strong></p>" >> "$ErrorFileHTML"
     echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-ane-messages\">ANE: Client events logged to the server</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
     echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-anr-messages\">ANR: Server common and platform-specific messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
     echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">ANS: Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
@@ -524,7 +548,6 @@ create_one_client_report() {
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"
     cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" | sed "s|OC_URL|$OC_URL|" | sed "s/BACKUPNODE/${client,,}/" | sed "s|MAIN_URL|${MainURL}|" >> $ReportFile
 
     # Copy result if SCP=true
@@ -567,7 +590,8 @@ echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
 REPORT_DATE="$(date +%F)"
-REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” (running <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=concepts-spectrum-protect-overview\">Spectrum Protect</a> version <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=servers-whats-new\">$ServerVersion</a>) "
+SERVER_STRING="running <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=concepts-spectrum-protect-overview\">Spectrum Protect</a> version <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=servers-whats-new\">$ServerVersion</a>"
+REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/" | sed "s;REPORT_DATE;$REPORT_DATE;" | sed "s;REPORT_HEAD;$REPORT_HEAD;" | sed "s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 # Loop through the list of clients

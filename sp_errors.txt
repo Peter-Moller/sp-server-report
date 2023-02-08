@@ -25,10 +25,12 @@ ANR8213E|DISREGARD|Socket 108 aborted due to send error; error 104||
 ANR8583E|DISREGARD|An SSL socket-initialization error occurred on session nnnnn. The GSKit return code is 420 GSK_ERROR_SOCKET_CLOSED.||
 ANR8592I|DISREGARD|Session nnnnn connection is using protocol TLSV13, cipher specification TLS_AES_256_GCM_SHA384, certificate TSM Self-Signed Certificate||
 ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||
-ANR2579E|VALID|Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html
+ANR2568E|VALID|Request for node to start schedule is denied|https://www.ibm.com/support/pages/anr2568e-node-start-schedule-denied|
+ANR2579E|REPORTED|Schedule 'SCHEDULE' in domain 'DOMAIN' for node XX failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html
+ANR0424W|REPORTED|Session 'X' for node 'Y' refused - invalid password submitted|https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W|
 ANE4005E|VALID|Error processing 'X': file not found|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E|
-ANE4007E|VALID|Error processing 'X': access to the object is denied|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4007E|https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html|
+ANE4007E|REPORTED|Error processing 'X': access to the object is denied|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4007E|https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html|
 ANE4037E|VALID|Object 'X' changed during processing. Object skipped|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4037E|
-ANE4042E|VALID|Object name 'X' contains one or more unrecognized characters and is not valid|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4042E|https://fileadmin.cs.lth.se/intern/backup/ANE4042E.html
+ANE4042E|REPORTED|Object name 'X' contains one or more unrecognized characters and is not valid|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4042E|https://fileadmin.cs.lth.se/intern/backup/ANE4042E.html
 ANE4047E|VALID|There is a read error on 'X'. The file is skipped|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4047E|
-ANE4081E|VALID|Error processing 'Y': file space type is not supported|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4081E|https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html
+ANE4081E|REPORTED|Error processing 'Y': file space type is not supported|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4081E|https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html
