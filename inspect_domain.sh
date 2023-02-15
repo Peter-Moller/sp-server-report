@@ -1,6 +1,6 @@
 #!/bin/bash
 # Get detailed info for clients using the activity log
-# 2022-11-11 / PM
+# 2022-11-11 / Peter Möller
 # Department of Computer Science, Lund University
 
 # 'DOMAIN' is the domain or domains to be reported. 
@@ -78,6 +78,7 @@ if [ ! -d $OutDir ]; then
 fi
 ActlogToday="$(mktemp)"
 LinkReferer="target=\"_blank\" rel=\"noopener noreferrer\""
+SP_WikipediaURL="https://en.wikipedia.org/wiki/IBM_Tivoli_Storage_Manager"
 HTML_Template_Head="$ScriptDirName"/report_head.html
 HTML_Template_End="$ScriptDirName"/report_end.html
 HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
@@ -87,8 +88,8 @@ ErrorIcon="&nbsp;&#x1F4E7;"                                               # Ex: 
 ReportFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.html"             # Ex: ReportFileHTML='/var/tmp/tsm/cs/servers_2022-11-11.html'
 ErrorFile="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.errors"                # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11.errors'
 ErrorFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}_errors.html"       # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11_errors.html'
-SP_ErrorFile="$ScriptDirName"/sp_errors.txt
-MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"
+SP_ErrorFile="$ScriptDirName"/sp_errors.txt                               # Super-important file containing all errors we want to be aware of. Needs to be updated as new errors are found
+MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"                               # Used for the 'sub-pages' (error.html and individual reports) to link back to the main overview page
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -102,6 +103,8 @@ MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"
 server_info() {
     ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
     ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.16
+    SP_WhatsNewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=servers-whats-new"
+    SP_OverviewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=concepts-spectrum-protect-overview"
     ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
     ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
     EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
@@ -145,7 +148,6 @@ errors_today() {
         # Make one table per error
         for ERROR in $ErrorsInTheDailyLog
         do
-            LineNo=0
             ErrorText="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f3)"                                                                                                                         # Ex: ErrorText='Error processing '\''X'\'': file not found'
             IBM_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f4 | sed "s_SERVERVER_${ServerVersion}_")"                                                                               # Ex: IBM_Error_URL='https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E'
             CS_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f5)"                                                                                                                      # Ex: CS_Error_URL='https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html'
@@ -154,7 +156,8 @@ errors_today() {
             else
                 IBM_Link=""
             fi
-            if [ -n "$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f2 | grep -v REPORTED)" ]; then
+            # Make not of errors that are not noted in the public overview
+            if [ -n "$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f2 | grep -v REPORT)" ]; then
                 DisregardText="<span style=\"color: #555\"><em>(not reported in the client overview)</em></span>"
                 ErrorHeadText="<strong><em>$ERROR</em></strong>"
             else
@@ -164,7 +167,7 @@ errors_today() {
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
             echo "            <table id=\"errors\" style=\"margin-top: 1rem\">" >> "$ErrorFileHTML"
             if [ -n "$CS_Error_URL" ]; then
-                InfoLink="<a href=\"$CS_Error_URL\">Local info.</a> $NewWindowIcon<br>$IBM_Link $NewWindowIcon"
+                InfoLink="<a href=\"$CS_Error_URL\" $LinkReferer>Local info.</a> $NewWindowIcon<br>$IBM_Link $NewWindowIcon"
             else
                 if [ -n "$IBM_Link" ]; then
                     InfoLink="$IBM_Link $NewWindowIcon"
@@ -194,13 +197,11 @@ errors_today() {
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
                 EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
-                TableFirst_Cell="<td width=\"13%\" align=\"right\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td>"             
-                TableSecondCell="<td width=\"22%\">$Node</td>"
-                TableThird_Cell="<td width=\"35%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a>$ErrorIcon</td>"
-                TableFourthCell="<td width=\"30%\">$NodeOS</td>"
-                LocalLine="				<tr>${TableFirst_Cell}${TableSecondCell}${TableThird_Cell}${TableFourthCell}</tr>"
-                # Increase LineNo
-                let LineNo=$((LineNo+1))
+                TableCell_1="<td width=\"13%\" align=\"right\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td>"             
+                TableCell_2="<td width=\"22%\">$Node</td>"
+                TableCell_3="<td width=\"35%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a>$ErrorIcon</td>"
+                TableCell_4="<td width=\"30%\">$NodeOS</td>"
+                LocalLine="				<tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>"
                 echo "$LocalLine" >> "$ErrorFileHTML"
             done
             echo "				</tbody>" >> "$ErrorFileHTML"
@@ -216,14 +217,16 @@ errors_today() {
     echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
     echo "	</section>" >> "$ErrorFileHTML"
     echo "	<section>" >> "$ErrorFileHTML"
-    echo "    		<div class=\"flexbox-container\">" >> "$ErrorFileHTML"
+    echo "    	<div class=\"flexbox-container\">" >> "$ErrorFileHTML"
     echo "			<div id=\"box-explanations\">" >> "$ErrorFileHTML"
     echo "	            <p><strong>Messages, return codes, and error codes:</strong></p>" >> "$ErrorFileHTML"
-    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-ane-messages\">ANE: Client events logged to the server</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
-    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-anr-messages\">ANR: Server common and platform-specific messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
-    echo "				<p><a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">ANS: Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "				<p><tt>ANE:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-ane-messages\">Client events logged to the server</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "				<p><tt>ANR:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-anr-messages\">Server common and platform-specific messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
+    echo "				<p><tt>ANS:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
     echo "		    </div>" >> "$ErrorFileHTML"
     echo "		</div>" >> "$ErrorFileHTML"
+    echo "		$FOOTER_ROW" >> "$ErrorFileHTML"
+    echo "  </section>" >> "$ErrorFileHTML"
     echo "	</div>" >> "$ErrorFileHTML"
     echo "</body>" >> "$ErrorFileHTML"
     echo "</html>" >> "$ErrorFileHTML"
@@ -321,11 +324,11 @@ backup_result() {
         # Look for ANR2507I in the total history
         LastSuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2507I | tail -1 | awk '{print $1" "$2}')"                                                     # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
         EpochtimeLastSuccessful=$(date -d "$LastSuccessfulBackup" +"%s")                                                                                                                      # Ex: EpochtimeLastSuccessful=1661709663
-        LastSuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                       # Ex: LastSuccessfulNumDays=11
+        LastSuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                  # Ex: LastSuccessfulNumDays=11
         # The same for ANR2579E:
         LastUnsuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2579E | tail -1 | awk '{print $1" "$2}')"                                                   # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
         EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                                                                            # Ex: EpochtimeLastUnsuccessful=1666094861
-        LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                             # Ex: LastSuccessfulNumDays=1
+        LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                        # Ex: LastSuccessfulNumDays=1
         # If there is a successful backup in the total history, get when that was
         if [ -n "$LastSuccessfulBackup" ]; then
             if [ $LastSuccessfulNumDays -eq 0 ]; then
@@ -382,7 +385,7 @@ error_detection() {
     #ErrorMsg=""
     # First: see if there's no schedule associated with the node
     if [ -z "$Schedule" ]; then
-        ErrorMsg+="--- NO SCHEDULE ASSOCIATED ---"
+        ErrorMsg+="--- NO SCHEDULE ASSOCIATED ---<br>"
     fi
     if [ -n "$(grep ANE4007E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4007E "$ClientFile")
@@ -395,11 +398,11 @@ error_detection() {
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         NumErr=$(grep -c ANR0424W "$ClientFile")
-        ErrorMsg+="$NumErr $MulSign <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
+        ErrorMsg+="$NumErr $MulSign <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4042E "$ClientFile")
-        ErrorMsg+="$(printf "%'d" $NumErr) $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANS4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANS4042E</a> (unrecognized characters)<br>"
+        ErrorMsg+="$(printf "%'d" $NumErr) $MulSign <a href=\"https://fileadmin.cs.lth.se/intern/backup/ANE4042E.html\" target=\"_blank\" rel=\"noopener noreferrer\">ANE4042E</a> (unrecognized characters)<br>"
     fi
     if [ -n "$(grep ANE4081E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4081E "$ClientFile")
@@ -455,12 +458,12 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" | sed "s/REPORT_DATE/$(date +%F)/" | sed "s/REPORT_TIME/$(date +%H:%M)/" > "$ReportFile"
-    ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" > "$ReportFile"
+    ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
-    ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.17?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
+    ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
     ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
-    ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
+    ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
     # Get more detail for macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
         ClientOSLevel="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2 | sed 's/^\ //')"                                                                                 # Ex: ClientOSLevel='10.16.0'
@@ -486,7 +489,7 @@ create_one_client_report() {
     echo "        <tr><td align=\"right\">$ToolTipText_CloptSet</td><td align=\"left\">${CloptSet:--unknown-}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\">$ToolTipText_Schedule</td><td align=\"left\">${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Transport Method:</i></td><td align=\"left\">${TransportMethod:-unknown}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--}</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--} (<a href=\"$SP_WikipediaURL\" $LinkReferer>Spectrum Protect</a> <a href=\"$SP_WhatsNewURL\" $LinkReferer>$ServerVersion</a>)</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\">$ToolTipText_BackupDelete</td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client version:</i></td><td align=\"left\">$ClientVersion</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client OS:</i></td><td align=\"left\">$ClientOS</td></tr>" >> $ReportFile
@@ -519,10 +522,10 @@ create_one_client_report() {
     # Print info about the client on the server
     echo "    <table id=\"information\">" >> $ReportFile
     echo "      <thead>" >> $ReportFile
-    echo "        <tr><th colspan=\"7\">Client usage of server resources:</th></tr>" >> $ReportFile
+    echo "        <tr><th colspan=\"8\">Client usage of server resources:</th></tr>" >> $ReportFile
     echo "      </thead>" >> $ReportFile
     echo "      <tbody>" >> $ReportFile
-    echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align=\"right\"><i>Space Used [GB]</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
+    echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align=\"right\"><i>Space Used [GB]</i></td><td align=\"right\"><i>Usage</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
     FSIDs="$(echo "$ClientOccupancy" | grep -E "^\s*FSID:" | cut -d: -f2 | tr '\n' ' ')"                                                                                                      # Ex: FSIDs=' 2  1 '
     for fsid in $FSIDs
     do
@@ -536,19 +539,25 @@ create_one_client_report() {
         NbrFiles="$(echo "$OccupInfo" | grep -E "^\s*Number of Files:" | cut -d: -f2 | sed 's/^\ //' | cut -d\. -f1)"
         SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\ //;s/,//g' | cut -d\. -f1)"                                               # Ex: SpaceOccup=406869
         SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=397
+        # Detemine if we should present the usage as percent or per mille
+        if [ $(printf %.1f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l) | cut -d\. -f1) -gt 10 ]; then 
+            SpaceUsage="$(printf %.2f $(echo "$SpaceOccupGB/${StgSizeTB}0" | bc -l)) %"                                                                                                       # Ex: SpaceUsage='3.0 %'
+        else
+            SpaceUsage="$(printf %.2f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l)) ‰"                                                                                                          # Ex: SpaceUsage='1.5 ‰'
+        fi
         LastBackupDate="$(echo "$FSInfo" | grep -E "Last Backup Completion Date/Time:" | cut -d: -f2 | awk '{print $1}')"                                                                     # Ex: LastBackupDate=11/28/22
         if [ "$(echo "$LastBackupDate" | cut -c3,6)" = "//" ]; then
             LastBackupDate="20${LastBackupDate:6:2}-${LastBackupDate:0:2}-${LastBackupDate:3:2}"
         fi
         LastBackupNumDays="$(echo "$FSInfo" | grep -E "Days Since Last Backup Completed:" | cut -d: -f2 | awk '{print $1}' | sed 's/[,<]//g')"                                                # Ex: LastBackupNumDays='<1'
-        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">${NbrFiles:-0}</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">${NbrFiles:-0}</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td align=\"right\">$SpaceUsage</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
     done
     case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
         "macos"   ) LogFile="<code>/Library/Logs/tivoli/tsm</code>" ;;
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_" | sed "s|OC_URL|$OC_URL|" | sed "s/BACKUPNODE/${client,,}/" | sed "s|MAIN_URL|${MainURL}|" >> $ReportFile
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_; s|OC_URL|$OC_URL|; s/BACKUPNODE/${client,,}/; s|MAIN_URL|${MainURL}|; s|FOOTER_ROW|$FOOTER_ROW|; s/REPORT_DATE/$(date +%F)/; s/REPORT_TIME/$(date +%H:%M)/" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then
@@ -590,9 +599,9 @@ echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
 REPORT_DATE="$(date +%F)"
-SERVER_STRING="running <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=concepts-spectrum-protect-overview\">Spectrum Protect</a> version <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=servers-whats-new\">$ServerVersion</a>"
+SERVER_STRING="running <a href=\"$SP_OverviewURL $LinkReferer\">Spectrum Protect</a> version <a href=\"$SP_WhatsNewURL $LinkReferer\">$ServerVersion</a>"
 REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
-cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/" | sed "s;REPORT_DATE;$REPORT_DATE;" | sed "s;REPORT_HEAD;$REPORT_HEAD;" | sed "s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATE;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 # Loop through the list of clients
 for client in $CLIENTS
@@ -601,7 +610,16 @@ do
     ErrorMsg=""
     CriticalErrorMsg=""
 
-    # Go for the entire act log instead; if not, we will not get the infamous ANR2579E errors or the ANR2507I conclusion
+    # Get the actlog for the client, but only consider the dollowing messages:
+    # - ANE4954I:  Total number of objects backed up
+    # - ANE4961I:  Total number of bytes transferred
+    # - ANE4964I:  Elapsed processing time
+    # - ANR2579E:  Schedule ... failed (return code 12)
+    # - ANR2507I:  Schedule ... completed successfully
+    # - ANE4007E:  Access to object is denied
+    # - ANR0424W:  Session refused - invalid password
+    # - ANE4042E:  Object contains unrecognized characters
+    # - ANE4081E:  File space type not supported
     grep -Ei "\s$client[ \)]" "$ActlogToday" | grep -E "ANE4954I|ANE4961I|ANE4964I|ANR2579E|ANR2507I|ANE4007E|ANR0424W|ANE4042E|ANE4081E" > "$ClientFile"
 
     # Get client info (version, IP-address and such)
@@ -632,8 +650,7 @@ REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
 
 get_latest_client_versions
 
-cat "$HTML_Template_End" | sed "s/REPORT_TIME/$REPORT_TIME/" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/" | sed "s/LINUXX86VER/$LatestLinuxX86ClientVer/" | sed "s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/" | sed "s/MACOSVER/$LatestMacClientVer/" | sed "s/WINDOWSVER/$LatestWindowsClientVer/" | sed "s/STORAGE/$StorageText/" >> $ReportFileHTML
-
+cat "$HTML_Template_End" | sed "s/REPORT_TIME/$REPORT_TIME/; s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 # Send an email report (but only if there is a $RECIPIENT
 if [ -n "$RECIPIENT" ]; then
     # Used to be 'mailx' but that doesn't work anymore for some reason. So, using 'sendmail'

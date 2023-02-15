@@ -69,6 +69,7 @@ The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secr
 | `export SCP_USER=username`                           | ...and user name to log in as (using stored ssh-keys) |
 | `export PUBLICATION_URL="https://com.url.edu/path"`  | URL for the finished report (included in the email) |
 | `export STORAGE_POOL="STORAGE_POOL_1"`               | Given this, size and usage of the Storage Pool will be presented |
+| `export FOOTER="<p align=\"right\"><i>Footer-text</i></p>"` | Some text to present in the very bottom of the page, identifying the information provider |
 
 
 ### Error reporting

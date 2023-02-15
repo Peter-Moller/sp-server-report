@@ -1,6 +1,6 @@
 #!/bin/bash
 # Get detailed info for a single client using the activity log
-# 2022-09-06 / PM
+# 2022-09-06 / Peter Möller
 # Department of Computer Science, Lund University
 
 # Currently, it digs through machines that are manually specified in lists in the script. 
