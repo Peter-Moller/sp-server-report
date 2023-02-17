@@ -111,9 +111,9 @@ server_info() {
     OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
-        StgSizeGB="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/,//g')"             # Ex: StgSizeGB=276035
+        StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
         StgSizeTB="$(echo "scale=0; $StgSizeGB / 1024" | bc -l)"                                                                                                                              # Ex: StgSizeTB=269
-        StgUsage="$(dsmadmc -se=tsm4 -id=cs-pmo -password=$PASSWORD -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                     # Ex: StgUsage=2.9
+        StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                             # Ex: StgUsage=2.9
         StorageText="($StgSizeTB TB, ${StgUsage}% used)"                                                                                                                                      # Ex: StorageText='(276 TB, 2.9% used)'
     fi
     
@@ -537,7 +537,7 @@ create_one_client_report() {
         FSName="$(echo "$OccupInfo" | grep -E "^\s*Filespace Name:" | cut -d: -f2 | sed 's/^\ //')"
         FSType="$(echo "$FSInfo" | grep -E "^\s*Filespace Type:" | cut -d: -f2 | sed 's/^\ //')"                                                                                              # Ex: FSType=EXT4
         NbrFiles="$(echo "$OccupInfo" | grep -E "^\s*Number of Files:" | cut -d: -f2 | sed 's/^\ //' | cut -d\. -f1)"
-        SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\ //;s/,//g' | cut -d\. -f1)"                                               # Ex: SpaceOccup=406869
+        SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\xe2\x80\xaf/,/' | sed 's/\ //;s/,//g' | cut -d\. -f1)"                     # Ex: SpaceOccup=406869
         SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=397
         # Detemine if we should present the usage as percent or per mille
         if [ $(printf %.1f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l) | cut -d\. -f1) -gt 10 ]; then 
