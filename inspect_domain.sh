@@ -123,7 +123,7 @@ errors_today() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
-    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/DATE/$Today/g; s/TIME/$Now/" > "$ErrorFileHTML"
+    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATE/$Today/g; s/TIME/$Now/g" > "$ErrorFileHTML"
 
     # Check to see if any clients in the DOMAIN have had errors today
     # If not, we need to say that “All is well”
@@ -557,7 +557,7 @@ create_one_client_report() {
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_; s|OC_URL|$OC_URL|; s/BACKUPNODE/${client,,}/; s|MAIN_URL|${MainURL}|; s|FOOTER_ROW|$FOOTER_ROW|; s/REPORT_DATE/$(date +%F)/; s/REPORT_TIME/$(date +%H:%M)/" >> $ReportFile
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_; s|OC_URL|$OC_URL|; s/BACKUPNODE/${client,,}/; s|MAIN_URL|${MainURL}|; s|FOOTER_ROW|$FOOTER_ROW|; s/REPORT_DATE/$(date +%F)/g; s/REPORT_TIME/$(date +%H:%M)/g" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then

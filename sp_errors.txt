@@ -1,14 +1,25 @@
+ANR0165I|DISREGARD|Inventory file expiration started processing for node XX||
+ANR0166I|DISREGARD|The inventory expiration process is completed for node XX||
 ANR0403I|DISREGARD|Session nnnnn ended for node XX||
 ANR0405I|DISREGARD|Session nnnnn ended for administrator ADMIN||
 ANR0406I|DISREGARD|Session nnnnn started for node XX||
-ANR0407I|DISREGARD|Session nnnnn started for administrator ADMIN (SSL tsm4.cs.lth.se)||
-ANR0440W|DISREGARD|Protocol error on session nnnnn for node Unknown () - invalid verb header received||
-ANR0479W|DISREGARD|Session nnnnn for server 178-79-139-171.ip.linodeusercontent.com () terminated - connection with server severed||
+ANR0407I|DISREGARD|Session nnnnn started for administrator ADMIN||
+ANR0440W|DISREGARD|Protocol error on session nnnnn for node XX - invalid verb header received||
+ANR0479W|DISREGARD|Session nnnnn for server XX terminated - connection with server severed||
 ANR0481W|DISREGARD|Session nnnnn for node XX was terminated. The client did not respond within 60 seconds||
 ANR0482W|DISREGARD|Session nnnnn for node XX terminated - idle for more than 15 minutes||
+ANR0511I|DISREGARD|Session N opened output volume ZZ||
+ANR0513I|DISREGARD|Process N opened output volume ZZ||
+ANR0514I|DISREGARD|Session N closed volume ZZ||
+ANR0811I|DISREGARD|Inventory client file expiration started||
 ANR0944E|DISREGARD|QUERY PROCESS: No active processes found||
 ANR0950I|DISREGARD|Session nnnnn for node XX is using inline server data deduplication or inline compression||
 ANR0951I|DISREGARD|Session nnnnn for node XX processed nn files by using inline data deduplication or compression, or both||
+ANR0984I|DISREGARD|Process N for Database Backup started in the FOREGROUND||
+ANR0984I|DISREGARD|Process N for EXPIRE INVENTORY started in the FOREGROUND||
+ANR1360I|DISREGARD|Output volume ZZ opened (sequence number N)||
+ANR1362I|DISREGARD|Output volume ZZ closed (full)||
+ANR1639I|DISREGARD|Attributes changed for node XX||
 ANR1794W|DISREGARD|IBM Spectrum Protect SAN discovery is disabled by options||
 ANR1959I|DISREGARD|Status monitor collecting current data at TIME||
 ANR1960I|DISREGARD|Status monitor finished collecting data at TIME and will sleep for 5 minutes||
@@ -17,11 +28,19 @@ ANR2017I|DISREGARD|Administrator SERVER_CONSOLE issued command: SHOW MONVARS||
 ANR2023E|DISREGARD|QUERY ACTLOG: Extraneous parameter||
 ANR2034E|DISREGARD|QUERY REPLFAILURES: No match found using this criteria||
 ANR2165E|DISREGARD|Command: Invalid begin date - date||
+ANR2280I|DISREGARD|Full database backup started||
+ANR2467I|DISREGARD|DELETE VOLHISTORY||
 ANR2562I|DISREGARD|Automatic event record deletion started||
 ANR2563I|DISREGARD|Removing event records dated prior to DATE||
 ANR2565I|DISREGARD|0 schedules for immediate client actions have been deleted||
 ANR2662I|DISREGARD|(*) "Query schedule format=standard" displays an asterisk in the day of week column for enhanced schedules. The period column is blank||
-ANR8213E|DISREGARD|Socket 108 aborted due to send error; error 104||
+ANR2753I|DISREGARD|(MAINT_DAILY_CLEANING):ANR0165I Inventory file expiration started processing for
+ANR3755E|DISREGARD|No directory is specified for downloading client update packages||
+ANR4559I|DISREGARD|Backup DB is in progress||
+ANR4626I|DISREGARD|Database backup will use N streams for processing with the number originally requested N||
+ANR8213E|DISREGARD|Socket XX aborted due to send error; error YY||
+ANR8340I|DISREGARD|FILE volume ZZ||
+ANR8341I|DISREGARD|End-of-volume reached for FILE volume ZZ||
 ANR8583E|DISREGARD|An SSL socket-initialization error occurred on session nnnnn. The GSKit return code is 420 GSK_ERROR_SOCKET_CLOSED.||
 ANR8592I|DISREGARD|Session nnnnn connection is using protocol TLSV13, cipher specification TLS_AES_256_GCM_SHA384, certificate TSM Self-Signed Certificate||
 ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||
