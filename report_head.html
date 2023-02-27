@@ -129,6 +129,24 @@ input[type=text]:focus {
     margin: 10px;
     padding: 10px;
 }
+@font-face {
+	font-family: 'Glyphicons Halflings';
+	src: url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.eot);
+	src: url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.eot?#iefix) format('embedded-opentype'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.woff2) format('woff2'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.woff) format('woff'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.ttf) format('truetype'), url(https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/fonts/glyphicons-halflings-regular.svg#glyphicons_halflingsregular) format('svg')
+}
+.glyphicon {
+	position: relative;
+	top: 1px;
+	display: inline-block;
+	font-family: 'Glyphicons Halflings';
+	font-style: normal;
+	font-weight: 400;
+  font-size: 90%;
+	line-height: 1;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing:grayscale
+}
+.glyphicon-new-window:before { content: "\e164" }
 </style>
 <script type="text/javascript">
 	function sortTable(n) {
@@ -198,7 +216,7 @@ function search_client() {
 <body>
 <div class="main_page">
   <h3>Spectrum Protect</h3>
-  <h1> REPORT_H1_HEADER </h1>
+  <h1>REPORT_H1_HEADER </h1>
   <h2>REPORT_DATE</h2>
   <p>&nbsp;</p>
   <!-- input tag -->
