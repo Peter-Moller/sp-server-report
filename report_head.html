@@ -195,9 +195,9 @@ function compare(x, y, asc) {
   // based on the ascending/descending order.
   return function(v1, v2) {
 
-    // replace decimal comma w punctiation for numeric comparison
-    v1 = v1.replace(',','.');
-    v2 = v2.replace(',','.');
+    // remove thousand separator comma for numeric comparison
+    v1 = v1.replaceAll(',','');
+    v2 = v2.replaceAll(',','');
 
     // replace known suffixes for numeric comparison
     if (v1.includes(' KB') || v1.includes(' MB') || v1.includes(' GB')) {
