@@ -46,6 +46,7 @@ ANR8592I|DISREGARD|Session nnnnn connection is using protocol TLSV13, cipher spe
 ANR8601E|DISREGARD|During the SSL handshake, the certificate exchanged between the server and remote host XX was not validated||
 ANR2568E|VALID|Request to start schedule is denied|https://www.ibm.com/support/pages/anr2568e-node-start-schedule-denied|
 ANR2579E|REPORT|Schedule failed (return code 12)|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR2579E|https://fileadmin.cs.lth.se/intern/backup/ANR2579E.html
+ANR0149E|VALID|Filespace deleted|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-anr0010w#ANR0149E|
 ANR0424W|REPORT|Session refused - invalid password|https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR0424W|
 ANE4005E|VALID|Error processing 'X': file not found|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E|
 ANE4007E|REPORT|Access to object is denied|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4007E|https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html|
@@ -53,3 +54,4 @@ ANE4037E|VALID|Object skipped (changed during processing)|https://www.ibm.com/do
 ANE4042E|REPORT|Object contains unrecognized characters|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4042E|https://fileadmin.cs.lth.se/intern/backup/ANE4042E.html
 ANE4047E|VALID|Read error on 'X'. File skipped|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4047E|
 ANE4081E|REPORT|File space type not supported|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4081E|https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html
+ANE4987E|VALID|Object is in use by another process|https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4987E|
