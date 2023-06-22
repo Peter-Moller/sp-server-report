@@ -240,6 +240,7 @@ errors_today() {
 
 client_info() {
     ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query node $client f=d")"
+    PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select * from pvuestimate_details WHERE NODE_NAME = '$client'")"
     ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed 's/ Version //' | sed 's/, release /./' | sed 's/, level /./' | cut -d. -f1-3)"                   # Ex: ClientVersion='8.1.13'
     ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: ContactName='Peter Moller'
     ContactEmail="$(echo "$ClientInfo" | grep -E "^\s*Email Address:" | cut -d: -f2 | sed 's/^ *//')"                                                                                         # Ex: ContactEmail='peter.moller@cs.lth.se'
@@ -251,6 +252,8 @@ client_info() {
     NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*Registering Administrator:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                                     # Ex: NodeRegisteredBy=ADMIN
     PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: PolicyDomain=PD_01
     CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CloptSet=PD_01_OS_MACOS_2
+    Role="$(echo "$PVUDetails" | grep -E "^\s*ROLE_EFFECTIVE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: Role=CLIENT
+    PVU="$(echo "$PVUDetails" | grep -E "^\s*PVU:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                            # Ex: PVU=0
     Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=DAILY_10
     ScheduleStart="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"                # Ex: ScheduleStart=08:00:00
     ScheduleDuration="+ $(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"        # Ex: ScheduleDuration='+ 10 Hour(s)'
@@ -442,6 +445,7 @@ print_line() {
           <td align=\"right\"$TextColor>$(printf "%'d" $ClientTotalSpaceUsedGB)</td>
           <!--<td align=\"right\"$TextColor>${ClientNumFilespacesOnServer:-0}</td>-->
           <td align=\"left\" $TextColor>$ClientVersion</td>
+          <td align=\"right\" $TextColor>$PVU</td>
           <td align=\"left\" $TextColor>$ClientOS</td>
           <td align=\"left\" $TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td>
         </tr>" >> $ReportFileHTML
@@ -463,6 +467,7 @@ create_one_client_report() {
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
     ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
     ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
+    ToolTipText_PVU="<div class=\"tooltip\"><i>PVU:</i><span class=\"tooltiptext\">“Processor Value Units”; an IBM-specific measurement that governs financial cost for the backup client</span></div>"
     ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
     # Get more detail for macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
@@ -492,6 +497,8 @@ create_one_client_report() {
     echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--} (<a href=\"$SP_WikipediaURL\" $LinkReferer>Spectrum Protect</a> <a href=\"$SP_WhatsNewURL\" $LinkReferer>$ServerVersion</a>)</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\">$ToolTipText_BackupDelete</td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client version:</i></td><td align=\"left\">$ClientVersion</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\"><i>Effective role:</i></td><td align=\"left\">$Role</td></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client OS:</i></td><td align=\"left\">$ClientOS</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client last access:</i></td><td align=\"left\">${ClientLastAccess:-no info}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client last network:</i></td><td align=\"left\">${ClientLastNetwork:-no info}</td></tr>" >> $ReportFile
