@@ -211,7 +211,7 @@ errors_today() {
         echo "			<p><strong>No errors found in the domain “$DOMAIN”.</strong></p>" >> "$ErrorFileHTML"
     fi
     
-    # Put the last lines in the fil     e:
+    # Put the last lines in the file:
     echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
     echo "    <p align=\"center\"><a href=\"$MainURL\">Back to overview.</a></p>" >> "$ErrorFileHTML"
     echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
@@ -253,6 +253,13 @@ client_info() {
     PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: PolicyDomain=PD_01
     CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CloptSet=PD_01_OS_MACOS_2
     Role="$(echo "$PVUDetails" | grep -E "^\s*ROLE_EFFECTIVE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: Role=CLIENT
+    CPU_type="$(echo "$PVUDetails" | grep -E "^\s*PROC_TYPE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CPU_type=8
+    CPU_count="$(echo "$PVUDetails" | grep -E "^\s*PROC_COUNT:" | cut -d: -f2 | sed 's/^ *//')"                                                                                               # Ex: CPU_count=2
+    CPU_Client="$(echo "$PVUDetails" | grep -E "^\s*PROC_VENDOR:|^\s*PROC_BRAND:|^\s*PROC_MODEL:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ')"                                               # Ex: CPU_Client='Intel Xeon E5-2680V4 '
+    CPU_IBM="$(echo "$PVUDetails" | grep -E "^\s*VENDOR_D:|^\s*BRAND_D:|^\s*MODEL_D:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ' | sed 's/(R)/®/g')"                                         # Ex: CPU_IBM='Intel® Xeon® Default Model '
+    ValueFromTable="$(echo "$PVUDetails" | grep -E "^\s*VALUE_FROM_TABLE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ValueFromTable=YES
+    ValueUnits="$(echo "$PVUDetails" | grep -E "^\s*VALUE_UNITS:" | cut -d: -f2 | sed 's/^ *//')"                                                                                             # Ex: ValueUnits=100
+    Hypervisor="$(echo "$PVUDetails" | grep -E "^\s*HYPERVISOR:" | cut -d: -f2 | sed 's/^ *//')"                                                                                              # Ex: Hypervisor=VMware
     PVU="$(echo "$PVUDetails" | grep -E "^\s*PVU:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                            # Ex: PVU=0
     Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=DAILY_10
     ScheduleStart="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"                # Ex: ScheduleStart=08:00:00
@@ -467,7 +474,14 @@ create_one_client_report() {
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
     ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
     ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
-    ToolTipText_PVU="<div class=\"tooltip\"><i>PVU:</i><span class=\"tooltiptext\">“Processor Value Units”; an IBM-specific measurement that governs financial cost for the backup client</span></div>"
+    ToolTipText_Role="<div class=\"tooltip\"><i>Role:</i><span class=\"tooltiptext\">“ROLE_EFFECTIVE”; Actual role based on the values in the ROLE and ROLE_OVERRIDE fields</span></div>"
+    ToolTipText_NumCores="<div class=\"tooltip\"><i>Num cores:</i><span class=\"tooltiptext\">“PROC_TYPE”; Processor type as reported by the client. This value also reflects the number of cores the CPU has</span></div>"
+    ToolTipText_NumCPU="<div class=\"tooltip\"><i>Num CPU:</i><span class=\"tooltiptext\">“PROC_COUNT”; Processor quantity (=number of logical cores)</span></div>"
+    ToolTipText_ValueFromTable="<div class=\"tooltip\"><i>Value from table:</i><span class=\"tooltiptext\">Flag that indicates whether the PVU was calculated based on the IBM PVU table (an XML-file with info on known processors)</span></div>"
+    ToolTipText_VU="<div class=\"tooltip\"><i>Value units:</i><span class=\"tooltiptext\">“VALUE_UNITS”; Assigned processor value unit (PVU) for the processor</span></div>"
+    ToolTipText_CPU_client="<div class=\"tooltip\"><i>CPU (client):</i><span class=\"tooltiptext\">Processor as reported by the client. (PROC_VENDOR + PROC_BRAND + PROC_MODEL)</span></div>"
+    ToolTipText_CPU_IBM="<div class=\"tooltip\"><i>CPU (IBM):</i><span class=\"tooltiptext\">Processor from the PVU table (VENDOR_D + BRAND_D + MODEL_D)</span></div>"
+    ToolTipText_PVU="<div class=\"tooltip\"><i>PVU:</i><span class=\"tooltiptext\">“Processor Value Units”; an IBM-specific measurement that governs financial cost for the backup client (Num cores * Num CPU * Value units)</span></div>"
     ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
     # Get more detail for macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
@@ -523,6 +537,21 @@ create_one_client_report() {
     echo "        <tr><td align=\"right\"><i>Time elapsed:</i></td><td align=\"left\"$TextColor>$BackeupElapsedtime</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Backup concluded:</i></td><td align=\"left\"$TextColor>$LastFinishDate $LastFinishTime</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Errors encountered:</i></td><td align=\"left\"$TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td></tr>" >> $ReportFile
+    # License information
+    
+    echo "        <tr><th colspan=\"2\">License information:</th></tr>" >> $ReportFile
+    echo "        <tr><td align=\"right\">$ToolTipText_Role</td><td align=\"left\">$Role</td></tr>" >> $ReportFile
+    if [ "${Role,,}" = "server" ]; then
+        echo "        <tr><td align=\"right\">$ToolTipText_NumCores</td><td align=\"left\">$CPU_type</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_NumCPU</td><td align=\"left\">$CPU_count</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\"><i>Hypervisor:</i></td><td align=\"left\">$Hypervisor</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_ValueFromTable</td><td align=\"left\">${ValueFromTable,,}</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_VU</td><td align=\"left\">$ValueUnits</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_CPU_client</td><td align=\"left\">$CPU_Client</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_CPU_IBM</td><td align=\"left\">$CPU_IBM</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
+    fi
+
     echo "      </tbody>" >> $ReportFile
     echo "    </table>" >> $ReportFile
     echo "    <p>&nbsp;</p>" >> $ReportFile
