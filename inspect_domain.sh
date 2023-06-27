@@ -511,8 +511,6 @@ create_one_client_report() {
     echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--} (<a href=\"$SP_WikipediaURL\" $LinkReferer>Spectrum Protect</a> <a href=\"$SP_WhatsNewURL\" $LinkReferer>$ServerVersion</a>)</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\">$ToolTipText_BackupDelete</td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client version:</i></td><td align=\"left\">$ClientVersion</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Effective role:</i></td><td align=\"left\">$Role</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client OS:</i></td><td align=\"left\">$ClientOS</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client last access:</i></td><td align=\"left\">${ClientLastAccess:-no info}</td></tr>" >> $ReportFile
     echo "        <tr><td align=\"right\"><i>Client last network:</i></td><td align=\"left\">${ClientLastNetwork:-no info}</td></tr>" >> $ReportFile
@@ -549,8 +547,8 @@ create_one_client_report() {
         echo "        <tr><td align=\"right\">$ToolTipText_VU</td><td align=\"left\">$ValueUnits</td></tr>" >> $ReportFile
         echo "        <tr><td align=\"right\">$ToolTipText_CPU_client</td><td align=\"left\">$CPU_Client</td></tr>" >> $ReportFile
         echo "        <tr><td align=\"right\">$ToolTipText_CPU_IBM</td><td align=\"left\">$CPU_IBM</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
     fi
+    echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
 
     echo "      </tbody>" >> $ReportFile
     echo "    </table>" >> $ReportFile
