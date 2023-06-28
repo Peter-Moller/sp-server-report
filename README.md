@@ -78,7 +78,7 @@ The file `sp_errors.txt` is required for the error report. It consists of a numb
 `Message Code|DISREGARD` or `VALID|Explanation|URL-to-IBM|URL-to-custom-error-page`  
 Lines marked with:  
 `REPORT` will be reported in the domain report  
-`VALID` will be reported in the error-report  
+`VALID` will be reported only in the error-report  
 `DISREGARD` will be disregarded for presentation but are used to shorten the daily actlog-excerpt that is used when sifting through the 
 daily activity to find the data we are looking for. These error codes are quite common and do not add any useful information and thus 
 removing them serves the purpose of making the processing faster.
