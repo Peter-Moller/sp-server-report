@@ -33,6 +33,21 @@ if [ -f ~/.tsm_secrets.env ]; then
 else
     source "$ScriptDirName"/tsm_secrets.env
 fi
+# Fields in this file:
+# ID:              Spectrum Protect user that will gather all data
+# PASSWORD:        Password for this user
+# RECIPIENT:       Who should recieve the report
+# OC_SERVER:       Address of the Spectrum Protect Operations Server (including port, if applicable)
+# SCP:             Should the report be transferred using 'scp' (true/false)
+# SCP_HOST:        If so, to which host
+# SCP_DIR:         What directory should it be placed in (directory must exist!)
+# SCP_USER:        Username for the 'scp' transfer (usage of ssh-keys is assumed)
+# PUBLICATION_URL: URL for this web site
+# STORAGE_POOL:    Name of the storage pool to look at (presents its size and relative use)
+# FOOTER_ROW:      Text string for the footer of the pages
+# Example:
+# '<p align="right"><em>\&#8220;tsm-server-report\&#8221; (<a href="https://github.com/Peter-Moller/tsm-server-report" target="_blank" rel="noopener noreferrer">GitHub</a> <span class="glyphicon">\&#xe164;</span>)<br>Department of Computer Science, LTH</em></p>'
+
 
 # Generate the list of clients ('CLIENTS') to traverse by going through the list of policy domains ('DOMAIN')
 # Also, generate a explanatory string for the domains ('Explanation'):
@@ -123,7 +138,7 @@ errors_today() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
-    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATE/$Today/g; s/TIME/$Now/g" > "$ErrorFileHTML"
+    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATETIME/$REPORT_DATETIME/g" > "$ErrorFileHTML"
 
     # Check to see if any clients in the DOMAIN have had errors today
     # If not, we need to say that “All is well”
@@ -225,7 +240,7 @@ errors_today() {
     echo "				<p><tt>ANS:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
     echo "		    </div>" >> "$ErrorFileHTML"
     echo "		</div>" >> "$ErrorFileHTML"
-    echo "		$FOOTER_ROW" >> "$ErrorFileHTML"
+    echo "		${FOOTER_ROW//\\/}" >> "$ErrorFileHTML"
     echo "  </section>" >> "$ErrorFileHTML"
     echo "	</div>" >> "$ErrorFileHTML"
     echo "</body>" >> "$ErrorFileHTML"
@@ -591,7 +606,7 @@ create_one_client_report() {
         "windows" ) LogFile="<code>C:\TSM</code>\&nbsp;or\&nbsp;<code>C:\Program Files\Tivoli\baclient</code>" ;;
                 * ) LogFile="<code>/var/log/tsm</code>\&nbsp;or\&nbsp;<code>/opt/tivoli/tsm/client/ba/bin</code>" ;;
     esac
-    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_; s|OC_URL|$OC_URL|; s/BACKUPNODE/${client,,}/; s|MAIN_URL|${MainURL}|; s|FOOTER_ROW|$FOOTER_ROW|; s/REPORT_DATE/$(date +%F)/g; s/REPORT_TIME/$(date +%H:%M)/g" >> $ReportFile
+    cat "$HTML_Template_one_client_End" | sed "s_LOGFILE_${LogFile}_; s|OC_URL|$OC_URL|; s/BACKUPNODE/${client,,}/; s|MAIN_URL|${MainURL}|; s|FOOTER_ROW|$FOOTER_ROW|; s/REPORT_DATETIME/$REPORT_DATETIME/g" >> $ReportFile
 
     # Copy result if SCP=true
     if $SCP; then
@@ -633,9 +648,10 @@ echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
 REPORT_DATE="$(date +%F)"
+REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                           # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
 SERVER_STRING="running <a href=\"$SP_OverviewURL $LinkReferer\">Spectrum Protect</a> version <a href=\"$SP_WhatsNewURL $LinkReferer\">$ServerVersion</a>"
 REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
-cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATE;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 # Loop through the list of clients
 for client in $CLIENTS
@@ -684,7 +700,7 @@ REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
 
 get_latest_client_versions
 
-cat "$HTML_Template_End" | sed "s/REPORT_TIME/$REPORT_TIME/; s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
+cat "$HTML_Template_End" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 # Send an email report (but only if there is a $RECIPIENT
 if [ -n "$RECIPIENT" ]; then
     # Used to be 'mailx' but that doesn't work anymore for some reason. So, using 'sendmail'
