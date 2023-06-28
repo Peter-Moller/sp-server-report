@@ -475,7 +475,7 @@ print_line() {
 
 # Get the latest client versions
 get_latest_client_versions() {
-    LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
+    LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
     LatestLinuxX86_DEBClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86_DEB/.current_client_version | cut -d\. -f-3)"
     LatestMacClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Mac/.current_client_version | cut -d\. -f-3)"
     LatestWindowsClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Windows/.current_client_version | cut -d\. -f-3)"
@@ -484,7 +484,7 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s;REPORT_DATETIME;$REPORT_DATETIME;" > "$ReportFile"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/" > "$ReportFile"
     ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
     ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
@@ -626,6 +626,9 @@ create_one_client_report() {
 # Get basic server info
 server_info
 
+REPORT_DATE="$(date +%F)"
+REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                           # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
+
 # Get the activity log for today (saves time to do it only once)
 # Do not include 'ANR2017I Administrator ADMIN issued command:' and a bunch of other stuff
 # Make a variable with all error codes that are “irrelevant”:
@@ -647,8 +650,6 @@ fi
 echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
-REPORT_DATE="$(date +%F)"
-REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                           # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
 SERVER_STRING="running <a href=\"$SP_OverviewURL $LinkReferer\">Spectrum Protect</a> version <a href=\"$SP_WhatsNewURL $LinkReferer\">$ServerVersion</a>"
 REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATETIME;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
@@ -700,7 +701,8 @@ REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
 
 get_latest_client_versions
 
-cat "$HTML_Template_End" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
+#cat "$HTML_Template_End" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
+cat "$HTML_Template_End" | sed "s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 # Send an email report (but only if there is a $RECIPIENT
 if [ -n "$RECIPIENT" ]; then
     # Used to be 'mailx' but that doesn't work anymore for some reason. So, using 'sendmail'
