@@ -102,6 +102,10 @@ Example 3. The error report page:
 
 ![example of an error report](example_of_error-report.png)
 
-Example 4. A sample email from the error report:
+Example 4. A error detail page:
+
+![example_of_error_explanation](example_of_error_explanation.png)
+
+Example 5. A sample email from the error report:
 
 ![example of an error email](example_of_error_email.png)
