@@ -223,7 +223,7 @@ errors_today() {
             echo "			</table>" >> "$ErrorFileHTML"
         done
     else
-        echo "			<p><strong>No errors found in the domain “$DOMAIN”.</strong></p>" >> "$ErrorFileHTML"
+        echo "			<p><strong>No errors found in the domain &#8220;$DOMAIN&#8221;.</strong></p>" >> "$ErrorFileHTML"
     fi
     
     # Put the last lines in the file:
@@ -475,7 +475,7 @@ print_line() {
 
 # Get the latest client versions
 get_latest_client_versions() {
-    LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
+    LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
     LatestLinuxX86_DEBClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86_DEB/.current_client_version | cut -d\. -f-3)"
     LatestMacClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Mac/.current_client_version | cut -d\. -f-3)"
     LatestWindowsClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Windows/.current_client_version | cut -d\. -f-3)"
@@ -484,7 +484,7 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g" > "$ReportFile"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s;REPORT_DATETIME;$REPORT_DATETIME;" > "$ReportFile"
     ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
     ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
     ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
@@ -651,7 +651,7 @@ REPORT_DATE="$(date +%F)"
 REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                           # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
 SERVER_STRING="running <a href=\"$SP_OverviewURL $LinkReferer\">Spectrum Protect</a> version <a href=\"$SP_WhatsNewURL $LinkReferer\">$ServerVersion</a>"
 REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
-cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATETIME;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 # Loop through the list of clients
 for client in $CLIENTS
