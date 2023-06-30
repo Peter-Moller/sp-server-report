@@ -115,6 +115,7 @@ MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"                               # Used
 #  \____/    \_/   \_| |_/ \_| \_|   \_/        \___/  \_|         \_|      \___/  \_| \_/  \____/   \_/    \___/   \___/  \_| \_/ \____/ 
 
 
+# Get summary of vital parameters for the server
 server_info() {
     ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
     ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.16
@@ -126,14 +127,19 @@ server_info() {
     OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
-        StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
-        StgSizeTB="$(echo "scale=0; $StgSizeGB / 1024" | bc -l)"                                                                                                                              # Ex: StgSizeTB=269
-        StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                             # Ex: StgUsage=2.9
+        #StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
+        #StgSizeTB="$(echo "scale=0; $StgSizeGB / 1024" | bc -l)"                                                                                                                              # Ex: StgSizeTB=269
+        StgSizeTB="$(echo "scale=0; $(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT EST_CAPACITY_MB FROM STGPOOLS WHERE STGPOOL_NAME='$STORAGE_POOL'" | awk '{print $NF}') / 1048576" | bc -l)"    # Ex: StgSizeTB=269
+        #StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                             # Ex: StgUsage=2.9
+        StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=list "SELECT PCT_UTILIZED FROM STGPOOLS WHERE STGPOOL_NAME='$STORAGE_POOL'" | grep "PCT_UTILIZED:" | awk '{print $NF}' )"                     # Ex: StgUsage=4.5
         StorageText="($StgSizeTB TB, ${StgUsage}% used)"                                                                                                                                      # Ex: StorageText='(276 TB, 2.9% used)'
     fi
     
 }
 
+
+# Create a html-file detailing all errors in the indicated DOMAIN today
+# and, if applicable, transport it to the web publication server using 'scp'
 errors_today() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
@@ -201,9 +207,14 @@ errors_today() {
             for Node in $CLIENTS_with_this_error
             do
                 NumUserErrors="$(grep $ERROR $ActlogToday | grep -c $Node)"                                                                                                                   # Ex: NumUserErrors=24
-                NodeContact="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LIST "query node $Node f=d" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ //')"                       # Ex: NodeContact='Jacek Malec'
-                NodeEmail="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LIST "query node $Node f=d" | grep -E "^\s*Email Address:" | cut -d: -f2 | sed 's/^ //')"                   # Ex: NodeEmail=jacek.malec@cs.lth.se
-                NodeOS="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LIST "query node $Node f=d" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed 's/Microsoft //; s/ release//; s/Macintosh/macOS/' | cut -d\( -f1)"
+                ClientInfoForError="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT CONTACT,EMAIL_ADDRESS,CLIENT_OS_NAME FROM NODES WHERE NODE_NAME='$client'")"
+                # Ex: ClientInfoForError='
+                #  CONTACT: CS driftgrupp
+                #  EMAIL_ADDRESS: drift@cs.lth.se
+                #  CLIENT_OS_NAME: LNX:Ubuntu 20.04.6 LTS'
+                NodeContact="$(echo "$ClientInfoForError" | grep -E "^\s*CONTACT:" | sed 's/^\s*CONTACT: //')"                                                                               # Ex: NodeContact='Jacek Malec'
+                NodeEmail="$(echo "$ClientInfoForError" | grep -E "^\s*EMAIL_ADDRESS:" | sed 's/^\s*EMAIL_ADDRESS: //')"                                                                     # Ex: NodeEmail=jacek.malec@cs.lth.se
+                NodeOS="$(echo "$ClientInfoForError" | grep -E "^\s*CLIENT_OS_NAME:" | sed 's/^\s*CLIENT_OS_NAME: //' | cut -d: -f2 | sed 's/Microsoft //; s/ release//; s/Macintosh/macOS/')"
                 # Ex: ClientOS='macOS' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
                 # Get a link for the error in question:
                 if [ -n "$CS_Error_URL" ]; then
@@ -254,51 +265,37 @@ errors_today() {
 
 }
 
+
+# (Used by the client-loop)
+# Get basic data for a single client
 client_info() {
     #ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query node $client f=d")"
-    NodeDetailsToLookFor="BACKDELETE,CLIENT_OS_LEVEL,CLIENT_OS_NAME,COMPRESSION,CONTACT,EMAIL_ADDRESS,NODE_NAME,OPTION_SET,DOMAIN_NAME,REG_ADMIN,REG_TIME,TCP_ADDRESS,TRANSPORT_METHOD,CLIENT_LEVEL,CLIENT_RELEASE,CLIENT_SUBLEVEL,CLIENT_VERSION"
-    ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "SELECT $NodeDetailsToLookFor FROM NODES WHERE NODE_NAME='$client'" | grep -v "^ANS8")"
-    # Ex:
-    # ClientInfo='IBM Spectrum Protect
-    # Command Line Administrative Interface - Version 8, Release 1, Level 15.0
-    # (c) Copyright by IBM Corporation and other(s) 1990, 2022. All Rights Reserved.
-    # 
-    # Session established with server TSM4: Linux/x86_64
-    #   Server Version 8, Release 1, Level 16.000
-    #   Server date/time: 2023-06-29 11:22:17  Last access: 2023-06-29 11:19:55
-    # 
-    # 
+    NodeDetailsToLookFor="BACKDELETE,CLIENT_LEVEL,CLIENT_OS_LEVEL,CLIENT_OS_NAME,CLIENT_RELEASE,CLIENT_SUBLEVEL,CLIENT_VERSION,COMPRESSION,CONTACT,DOMAIN_NAME,EMAIL_ADDRESS,LASTACC_TIME,NODE_NAME,OPTION_SET,REG_ADMIN,REG_TIME,TCP_ADDRESS,TRANSPORT_METHOD"
+    ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT $NodeDetailsToLookFor FROM NODES WHERE NODE_NAME='$client'")"
+    # Ex: ClientInfo='
     #       BACKDELETE: NO
+    #     CLIENT_LEVEL: 17
     #  CLIENT_OS_LEVEL: 10.16.0
     #   CLIENT_OS_NAME: MAC:Macintosh
+    #   CLIENT_RELEASE: 1
+    #  CLIENT_SUBLEVEL: 0
+    #   CLIENT_VERSION: 8
     #      COMPRESSION: CLIENT
     #          CONTACT: Peter Moller
+    #      DOMAIN_NAME: CS_CLIENTS
     #    EMAIL_ADDRESS: peter.moller@cs.lth.se
+    #     LASTACC_TIME: 2023-06-30 06:34:35.000000
     #        NODE_NAME: CS-PETERMAC
     #       OPTION_SET: MAC_CLIENT
-    #      DOMAIN_NAME: CS_CLIENTS
     #        REG_ADMIN: CS-PMO
     #         REG_TIME: 2022-11-09 11:25:33.000000
     #      TCP_ADDRESS: 130.235.16.10
-    # TRANSPORT_METHOD: TLS13
-    #     CLIENT_LEVEL: 17
-    #   CLIENT_RELEASE: 1
-    #  CLIENT_SUBLEVEL: 0
-    #   CLIENT_VERSION: 8'
+    # TRANSPORT_METHOD: TLS13'
 
     #PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select * from pvuestimate_details WHERE NODE_NAME = '$client'")"
     PVUDetailsToLookFor="ROLE_EFFECTIVE,PROC_TYPE,PROC_COUNT,PROC_VENDOR,VENDOR_D,VALUE_FROM_TABLE,VALUE_UNITS,HYPERVISOR,PVU,PROC_VENDOR,PROC_BRAND,PROC_MODEL,VENDOR_D,BRAND_D,MODEL_D"
-    PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select $PVUDetailsToLookFor from pvuestimate_details WHERE NODE_NAME = '$client'" | grep -v "^ANS8")"
-    # Ex:
-    # PVUDetails='IBM Spectrum Protect
-    # Command Line Administrative Interface - Version 8, Release 1, Level 15.0
-    # (c) Copyright by IBM Corporation and other(s) 1990, 2022. All Rights Reserved.
-    # 
-    # Session established with server TSM4: Linux/x86_64
-    #   Server Version 8, Release 1, Level 16.000
-    #   Server date/time: 2023-06-29 11:26:47  Last access: 2023-06-29 11:26:27
-    # 
-    # 
+    PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "select $PVUDetailsToLookFor from pvuestimate_details WHERE NODE_NAME = '$client'")"
+    # Ex: PVUDetails='
     #   ROLE_EFFECTIVE: SERVER
     #        PROC_TYPE: 6
     #       PROC_COUNT: 4
@@ -340,12 +337,32 @@ client_info() {
     ValueUnits="$(echo "$PVUDetails" | grep -E "^\s*VALUE_UNITS:" | cut -d: -f2 | sed 's/^ *//')"                                                                                             # Ex: ValueUnits=100
     Hypervisor="$(echo "$PVUDetails" | grep -E "^\s*HYPERVISOR:" | cut -d: -f2 | sed 's/^ *//')"                                                                                              # Ex: Hypervisor=VMware
     PVU="$(echo "$PVUDetails" | grep -E "^\s*PVU:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                            # Ex: PVU=0
-    Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=DAILY_10
-    ScheduleStart="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"                # Ex: ScheduleStart=08:00:00
-    ScheduleDuration="+ $(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"        # Ex: ScheduleDuration='+ 10 Hour(s)'
+    ScheduleDetailsToLookFor="SCHEDULE_NAME,STARTTIME,DURATION,DURUNITS"
+    # Get all schedules known to the domain:
+    ScheduleInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT $ScheduleDetailsToLookFor FROM CLIENT_SCHEDULES WHERE DOMAIN_NAME='$PolicyDomain'")"
+    # Ex: 
+    # ScheduleInfo='
+    #  SCHEDULE_NAME: ALL_NIGHT
+    #      STARTTIME: 20:00:00
+    #       DURATION: 11
+    #       DURUNITS: HOURS
+    #  
+    #  SCHEDULE_NAME: EARLY_NIGHT
+    #      STARTTIME: 20:00:00
+    #       DURATION: 4
+    #       DURUNITS: HOURS
+    #  
+    #  SCHEDULE_NAME: LATE_NIGHT
+    #      STARTTIME: 03:00:00
+    #       DURATION: 4
+    #       DURUNITS: HOURS'
+
+    Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=ALL_DAY
+    ScheduleStart="$(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*STARTTIME:" | cut -d: -f2- | sed 's/^ //')"                                                                  # Ex: ScheduleStart=04:00:00
+    ScheduleDuration="+ $(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*DURATION:|^\s*DURUNITS:" | cut -d: -f2- | tr -d '\n' | sed 's/^ //')"                                   # Ex: ScheduleDuration='+ 18 HOURS'
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*TRANSPORT_METHOD:" | cut -d: -f2 | sed 's/^ *//; s/TLS13/TLS 1.3/')"                                                                 # Ex: TransportMethod='TLS 1.3'
-    ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*Backup Delete Allowed\?:" | cut -d: -f2 | sed 's/^ *//')"                                                                      # Ex: ClientCanDeleteBackup=No
-    ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed 's/^ //')"                                                                               # Ex: ClientLastNetworkTemp='10.7.58.184'
+    ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*BACKDELETE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: ClientCanDeleteBackup=YES
+    ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP_ADDRESS:" | cut -d: -f2 | sed 's/^ //')"                                                                                  # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
         "130.235") ClientLastNetwork="LU" ;;
         "10.4")    ClientLastNetwork="Static VPN" ;;
@@ -360,31 +377,50 @@ client_info() {
         "130.235.17" ) ClientLastNetwork="CS server net" ;;
         "10.0.16"    ) ClientLastNetwork="CS client net" ;;
     esac
-    ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Name:" | cut -d: -f3 | sed 's/Microsoft //' | sed 's/ release//' | cut -d\( -f1)"
+    ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_NAME:" | cut -d: -f3 | sed 's/Microsoft //' | sed 's/ release//' | cut -d\( -f1)"
     # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
     # Get some more info about macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
-        OSver="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2)"
+        OSver="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_LEVEL:" | cut -d: -f2)"                                                                                                         # Ex: OSver=' 10.16.0'
         ClientOS="macOS$OSver"
     fi
-    ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*Last Access Date/Time:" | cut -d: -f2-)"                                                                                           # Ex: ClientLastAccess='2018-11-01   11:39:06'
-    ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client")"
+    ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*LASTACC_TIME:" | awk '{print $2" "$3}' | cut -d\. -f1)"                                                                            # Ex: ClientLastAccess='2023-06-30 06:34:35'
+    #ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client")"
+    ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT FILESPACE_ID,FILESPACE_NAME,NUM_FILES,PHYSICAL_MB,LOGICAL_MB,REPORTING_MB FROM OCCUPANCY WHERE NODE_NAME='$client'")"
+    # Ex: ClientOccupancy='
+    #  FILESPACE_ID: 2
+    #  FILESPACE_NAME: /
+    #       NUM_FILES: 6596
+    #     PHYSICAL_MB: 
+    #      LOGICAL_MB: 
+    #    REPORTING_MB: 9889.91
+    #  
+    #    FILESPACE_ID: 1
+    #  FILESPACE_NAME: /data
+    #       NUM_FILES: 87835
+    #     PHYSICAL_MB: 
+    #      LOGICAL_MB: 
+    #    REPORTING_MB: 788967.11'
+
     # Deal with clients who are using deduplication.
     # (If they are, the server does only present the 'Logical Space Occupied' number since it actually cannot determine the physical space occupied)
-    if [ -z "$(echo "$ClientOccupancy" | grep "Physical Space Occupied" | cut -d: -f2 | grep -o '-')" ]; then
-        OccupiedPhrase="Physical Space Occupied"
+    if [ -z "$(echo "$ClientOccupancy" | grep "PHYSICAL_MB" | cut -d: -f2)" ]; then
+        OccupiedPhrase="PHYSICAL_MB"
     else
-        OccupiedPhrase="Logical Space Occupied"
+        OccupiedPhrase="REPORTING_MB"
     fi
-    ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"                                                      # Ex: ClientTotalSpaceTemp=' 217155.02+ 5.20+ 1285542.38'
-    ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                                        # Ex: ClientTotalSpaceUsedMB=1502702
-    ClientTotalSpaceUsedGB=$(echo "scale=0; ( $ClientTotalSpaceTemp ) / 1024" | bc 2>/dev/null | cut -d. -f1)                                                                                 # Ex: ClientTotalSpaceUsedMB=1467
-    ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "Number of Files" | cut -d: -f2 | sed 's/,//g' | tr '\n' '+' | sed 's/+$//')"                                                   # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
+    ClientTotalSpaceTemp="$(echo "$ClientOccupancy" | grep "$OccupiedPhrase" | cut -d: -f2 | tr '\n' '+' | sed 's/+$//')"                                                                     # Ex: ClientTotalSpaceTemp=' 9889.91+ 788967.11'
+    # -not-used- ClientTotalSpaceUsedMB=$(echo "scale=0; $ClientTotalSpaceTemp" | bc | cut -d. -f1)                                                                                           # Ex: ClientTotalSpaceUsedMB=1502702
+    ClientTotalSpaceUsedGB=$(echo "scale=0; ( $ClientTotalSpaceTemp ) / 1024" | bc 2>/dev/null | cut -d. -f1)                                                                                 # Ex: ClientTotalSpaceUsedGB=780
+    ClientTotalNumfilesTemp="$(echo "$ClientOccupancy" | grep "NUM_FILES" | cut -d: -f2 | tr '\n' '+' | sed 's/+$//')"                                                                        # ClientTotalNumfilesTemp=' 1194850+ 8+ 2442899'
     ClientTotalNumFiles=$(echo "scale=0; $ClientTotalNumfilesTemp" | bc | cut -d. -f1)                                                                                                        # Ex: ClientTotalNumFiles=1502702
     # Get the number of client file spaces on the server
-    ClientNumFilespacesOnServer=$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occupancy $client" | grep -cE "^\s*Filespace Name:")                                       # Ex: ClientNumFilespacesOnServer=2
+    ClientNumFilespacesOnServer=$(echo "$ClientOccupancy" | grep -cE "^\s*FILESPACE_NAME:")                                                                                                   # Ex: ClientNumFilespacesOnServer=2
 }
 
+
+# (Used by the client-loop)
+# Get the result from the backup of a single client
 backup_result() {
     # Number of files:
     # (note that some client use a unicode 'non breaking space', e280af, as thousands separator. This must be dealt with!)
@@ -470,6 +506,9 @@ backup_result() {
     fi
 }
 
+
+# (Used by the client-loop)
+# Get the errors for of a single client
 error_detection() {
     #ErrorMsg=""
     # First: see if there's no schedule associated with the node
@@ -503,7 +542,9 @@ error_detection() {
     fi
 }
 
-# Print the result
+
+# (Used by the client-loop)
+# Print the result for a single client
 print_line() {
     # If we have a critical error message, display only that:
     if [ -n "$CriticalErrorMsg" ]; then
@@ -537,6 +578,7 @@ print_line() {
         </tr>" >> $ReportFileHTML
 }
 
+# (General – one time – use)
 # Get the latest client versions
 get_latest_client_versions() {
     LatestLinuxX86ClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/LinuxX86/.current_client_version | cut -d\. -f-3)"
@@ -545,6 +587,9 @@ get_latest_client_versions() {
     LatestWindowsClientVer="$(curl --silent https://fileadmin.cs.lth.se/intern/Backup-klienter/TSM/Windows/.current_client_version | cut -d\. -f-3)"
 }
 
+
+# (Used by the client-loop)
+# Create the entire html-file containing the result for a single client
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
@@ -639,19 +684,24 @@ create_one_client_report() {
     echo "      </thead>" >> $ReportFile
     echo "      <tbody>" >> $ReportFile
     echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align=\"right\"><i>Space Used [GB]</i></td><td align=\"right\"><i>Usage</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
-    FSIDs="$(echo "$ClientOccupancy" | grep -E "^\s*FSID:" | cut -d: -f2 | tr '\n' ' ')"                                                                                                      # Ex: FSIDs=' 2  1 '
+    FSIDs="$(echo "$ClientOccupancy" | grep -E "^\s*FILESPACE_ID:" | cut -d: -f2 | tr '\n' ' ')"                                                                                                      # Ex: FSIDs=' 2  1 '
     for fsid in $FSIDs
     do
+        # Note that we already have 'ClientOccupancy' and 'OccupiedPhrase' ("PHYSICAL_MB" or "REPORTING_MB") 
+        # from the function 'backup_result' and thus don't need to waste time to get the result again!
         FSName=""
         NbrFiles=0
         SpaceOccup=0
-        OccupInfo="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query occupancy $client $fsid nametype=fsid")"
-        FSInfo="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query filespace $client $fsid nametype=fsid f=d")"
-        FSName="$(echo "$OccupInfo" | grep -E "^\s*Filespace Name:" | cut -d: -f2 | sed 's/^\ //')"
+        #OccupInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occupancy $client $fsid nametype=fsid")"
+        FSInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query filespace $client $fsid nametype=fsid f=d")"
+        #FSName="$(echo "$OccupInfo" | grep -E "^\s*Filespace Name:" | cut -d: -f2 | sed 's/^\ //')"
+        FSName="$(echo "$ClientOccupancy" | grep -EA5 "FILESPACE_ID: $fsid" | grep -E "^\s*FILESPACE_NAME:" | cut -d: -f2 | sed 's/^\ //')"                                                   # Ex: FSName=/data
         FSType="$(echo "$FSInfo" | grep -E "^\s*Filespace Type:" | cut -d: -f2 | sed 's/^\ //')"                                                                                              # Ex: FSType=EXT4
-        NbrFiles="$(echo "$OccupInfo" | grep -E "^\s*Number of Files:" | cut -d: -f2 | sed 's/^\ //' | cut -d\. -f1)"
-        SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\xe2\x80\xaf/,/' | sed 's/\ //;s/,//g' | cut -d\. -f1)"                     # Ex: SpaceOccup=406869
-        SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=397
+        #NbrFiles="$(echo "$OccupInfo" | grep -E "^\s*Number of Files:" | cut -d: -f2 | sed 's/^\ //' | cut -d\. -f1)"
+        NbrFiles="$(echo "$ClientOccupancy" | grep -EA5 "FILESPACE_ID: $fsid" | grep -E "^\s*NUM_FILES:" | cut -d: -f2 | sed 's/^\ //')"                                                      # Ex: NbrFiles=87835
+        #SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\xe2\x80\xaf/,/' | sed 's/\ //;s/,//g' | cut -d\. -f1)"                    # Ex: SpaceOccup=406869
+        SpaceOccup="$(echo "$ClientOccupancy" | grep -EA5 "FILESPACE_ID: $fsid" | grep -E "^\s*$OccupiedPhrase:" | cut -d: -f2 | sed 's/^\ //')"                                              # Ex: SpaceOccup=788967.11
+        SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=770
         # Detemine if we should present the usage as percent or per mille
         if [ $(printf %.1f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l) | cut -d\. -f1) -gt 10 ]; then 
             SpaceUsage="$(printf %.2f $(echo "$SpaceOccupGB/${StgSizeTB}0" | bc -l)) %"                                                                                                       # Ex: SpaceUsage='3.0 %'
@@ -699,7 +749,15 @@ REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                         
 StandardMessagesToIgnore="$(grep DISREGARD $SP_ErrorFile | cut -d\| -f1 | tr '\n' '|' | sed 's/|$//')"                                                                                        # Ex: StandardMessagesToIgnore='ANR0403I|ANR0405I|ANR0406I|...|ANR8601E'
 dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today begintime=00:00:00 enddate=today endtime=now" | grep -Ev "$StandardMessagesToIgnore" > "$ActlogToday"
 # Get all concluded executions (ANR2579E or ANR2507I) the last $ActLogLength. This will save a lot of time later on
-AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"
+#AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today-$ActLogLength enddate=today" | grep -E "ANR2579E|ANR2507I")"                          # Time: ≈ 35 s
+# Ex:
+# 2023-06-30 10:00:04	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
+# 2023-06-30 10:02:37	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
+AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -TABdelimited "select DATE_TIME,MESSAGE FROM ACTLOG WHERE MESSAGE LIKE 'ANR2579E%' OR MESSAGE LIKE 'ANR2507I%'")"              # Time: ≈ 10 s
+# Ex:
+# 2023-06-30 10:00:04.000000	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
+# 2023-06-30 10:02:37.000000	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
+
 
 # Get the errors experienced today
 errors_today
