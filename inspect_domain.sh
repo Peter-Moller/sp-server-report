@@ -227,24 +227,25 @@ errors_today() {
     fi
     
     # Put the last lines in the file:
-    echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
-    echo "    <p align=\"center\"><a href=\"$MainURL\">Back to overview.</a></p>" >> "$ErrorFileHTML"
-    echo "    <p>&nbsp;</p>" >> "$ErrorFileHTML"
-    echo "	</section>" >> "$ErrorFileHTML"
-    echo "	<section>" >> "$ErrorFileHTML"
-    echo "    	<div class=\"flexbox-container\">" >> "$ErrorFileHTML"
-    echo "			<div id=\"box-explanations\">" >> "$ErrorFileHTML"
-    echo "	            <p><strong>Messages, return codes, and error codes:</strong></p>" >> "$ErrorFileHTML"
-    echo "				<p><tt>ANE:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-ane-messages\">Client events logged to the server</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
-    echo "				<p><tt>ANR:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=codes-anr-messages\">Server common and platform-specific messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
-    echo "				<p><tt>ANS:</tt> <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm\">Client messages</a> <span class=\"glyphicon\">&#xe164;</span></p>" >> "$ErrorFileHTML"
-    echo "		    </div>" >> "$ErrorFileHTML"
-    echo "		</div>" >> "$ErrorFileHTML"
+    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
+    echo '    <p align="center"><a href="'$MainURL'">Back to overview.</a></p>' >> "$ErrorFileHTML"
+    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
+    echo '	</section>' >> "$ErrorFileHTML"
+    echo '	<section>' >> "$ErrorFileHTML"
+    echo '    	<div class="flexbox-container">' >> "$ErrorFileHTML"
+    echo '			<div id="box-explanations">' >> "$ErrorFileHTML"
+    echo '	            <p><strong>Messages, return codes, and error codes:</strong></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANE:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-ane-messages">Client events logged to the server</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANR:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-anr-messages">Server common and platform-specific messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANS:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm">Client messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '		    </div>' >> "$ErrorFileHTML"
+    echo '		</div>' >> "$ErrorFileHTML"
+    echo '      <p align="right"><em>Report is generated once per day</em></p>'  >> "$ErrorFileHTML"
     echo "		${FOOTER_ROW//\\/}" >> "$ErrorFileHTML"
-    echo "  </section>" >> "$ErrorFileHTML"
-    echo "	</div>" >> "$ErrorFileHTML"
-    echo "</body>" >> "$ErrorFileHTML"
-    echo "</html>" >> "$ErrorFileHTML"
+    echo '  </section>' >> "$ErrorFileHTML"
+    echo '	</div>' >> "$ErrorFileHTML"
+    echo '</body>' >> "$ErrorFileHTML"
+    echo '</html>' >> "$ErrorFileHTML"
 
     # Copy result if SCP=true
     if $SCP; then
@@ -254,19 +255,82 @@ errors_today() {
 }
 
 client_info() {
-    ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query node $client f=d")"
-    PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select * from pvuestimate_details WHERE NODE_NAME = '$client'")"
-    ClientVersion="$(echo "$ClientInfo" | grep -E "^\s*Client Version:" | cut -d: -f2 | sed 's/ Version //' | sed 's/, release /./' | sed 's/, level /./' | cut -d. -f1-3)"                   # Ex: ClientVersion='8.1.13'
-    ContactName="$(echo "$ClientInfo" | grep -E "^\s*Contact:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: ContactName='Peter Moller'
-    ContactEmail="$(echo "$ClientInfo" | grep -E "^\s*Email Address:" | cut -d: -f2 | sed 's/^ *//')"                                                                                         # Ex: ContactEmail='peter.moller@cs.lth.se'
-    NodeRegisteredDate="$(echo "$ClientInfo" | grep -E "^\s*Registration Date/Time:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                                      # Ex: NodeRegistered=2022-07-01
+    #ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query node $client f=d")"
+    NodeDetailsToLookFor="BACKDELETE,CLIENT_OS_LEVEL,CLIENT_OS_NAME,COMPRESSION,CONTACT,EMAIL_ADDRESS,NODE_NAME,OPTION_SET,DOMAIN_NAME,REG_ADMIN,REG_TIME,TCP_ADDRESS,TRANSPORT_METHOD,CLIENT_LEVEL,CLIENT_RELEASE,CLIENT_SUBLEVEL,CLIENT_VERSION"
+    ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "SELECT $NodeDetailsToLookFor FROM NODES WHERE NODE_NAME='$client'" | grep -v "^ANS8")"
+    # Ex:
+    # ClientInfo='IBM Spectrum Protect
+    # Command Line Administrative Interface - Version 8, Release 1, Level 15.0
+    # (c) Copyright by IBM Corporation and other(s) 1990, 2022. All Rights Reserved.
+    # 
+    # Session established with server TSM4: Linux/x86_64
+    #   Server Version 8, Release 1, Level 16.000
+    #   Server date/time: 2023-06-29 11:22:17  Last access: 2023-06-29 11:19:55
+    # 
+    # 
+    #       BACKDELETE: NO
+    #  CLIENT_OS_LEVEL: 10.16.0
+    #   CLIENT_OS_NAME: MAC:Macintosh
+    #      COMPRESSION: CLIENT
+    #          CONTACT: Peter Moller
+    #    EMAIL_ADDRESS: peter.moller@cs.lth.se
+    #        NODE_NAME: CS-PETERMAC
+    #       OPTION_SET: MAC_CLIENT
+    #      DOMAIN_NAME: CS_CLIENTS
+    #        REG_ADMIN: CS-PMO
+    #         REG_TIME: 2022-11-09 11:25:33.000000
+    #      TCP_ADDRESS: 130.235.16.10
+    # TRANSPORT_METHOD: TLS13
+    #     CLIENT_LEVEL: 17
+    #   CLIENT_RELEASE: 1
+    #  CLIENT_SUBLEVEL: 0
+    #   CLIENT_VERSION: 8'
+
+    #PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select * from pvuestimate_details WHERE NODE_NAME = '$client'")"
+    PVUDetailsToLookFor="ROLE_EFFECTIVE,PROC_TYPE,PROC_COUNT,PROC_VENDOR,VENDOR_D,VALUE_FROM_TABLE,VALUE_UNITS,HYPERVISOR,PVU,PROC_VENDOR,PROC_BRAND,PROC_MODEL,VENDOR_D,BRAND_D,MODEL_D"
+    PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select $PVUDetailsToLookFor from pvuestimate_details WHERE NODE_NAME = '$client'" | grep -v "^ANS8")"
+    # Ex:
+    # PVUDetails='IBM Spectrum Protect
+    # Command Line Administrative Interface - Version 8, Release 1, Level 15.0
+    # (c) Copyright by IBM Corporation and other(s) 1990, 2022. All Rights Reserved.
+    # 
+    # Session established with server TSM4: Linux/x86_64
+    #   Server Version 8, Release 1, Level 16.000
+    #   Server date/time: 2023-06-29 11:26:47  Last access: 2023-06-29 11:26:27
+    # 
+    # 
+    #   ROLE_EFFECTIVE: SERVER
+    #        PROC_TYPE: 6
+    #       PROC_COUNT: 4
+    #      PROC_VENDOR: Intel
+    #         VENDOR_D: Intel(R)
+    # VALUE_FROM_TABLE: YES
+    #      VALUE_UNITS: 100
+    #       HYPERVISOR: VMware
+    #              PVU: 2400
+    #      PROC_VENDOR: Intel
+    #       PROC_BRAND: Xeon
+    #       PROC_MODEL: E5-2667V4
+    #         VENDOR_D: Intel(R)
+    #          BRAND_D: Xeon(R) or Pentium(R)
+    #          MODEL_D: All Existing'
+
+
+    ClientVer="$(echo "$ClientInfo" | grep -E "^\s*CLIENT_VERSION:" | cut -d: -f2 | sed 's/^ //')"                                                                                            # Ex: ClientVer=8
+    ClientRelease="$(echo "$ClientInfo" | grep -E "^\s*CLIENT_RELEASE:" | cut -d: -f2 | sed 's/^ //')"                                                                                        # Ex: ClientRelease=1
+    ClientLevel="$(echo "$ClientInfo" | grep -E "^\s*CLIENT_LEVEL:" | cut -d: -f2 | sed 's/^ //')"                                                                                            # Ex: ClientLevel=17
+    ClientSubLevel="$(echo "$ClientInfo" | grep -E "^\s*CLIENT_SUBLEVEL:" | cut -d: -f2 | sed 's/^ //')"                                                                                      # Ex: ClientSubLevel=0
+    ClientVersion="${ClientVer}.${ClientRelease}.${ClientLevel}.${ClientSubLevel}"                                                                                                            # Ex: ClientVersion=8.1.17.0
+    ContactName="$(echo "$ClientInfo" | grep -E "^\s*CONTACT:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: ContactName='Peter Moller'
+    ContactEmail="$(echo "$ClientInfo" | grep -E "^\s*EMAIL_ADDRESS:" | cut -d: -f2 | sed 's/^ *//')"                                                                                         # Ex: ContactEmail='peter.moller@cs.lth.se'
+    NodeRegisteredDate="$(echo "$ClientInfo" | grep -E "^\s*REG_TIME:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                                                    # Ex: NodeRegisteredDate=2022-11-09
     # Ugly fix for getting US date format to ISO 8601 (MM/DD/YY -> YYYY-MM-DD). See https://en.wikipedia.org/wiki/ISO_8601
     if [ "$(echo "$NodeRegisteredDate" | cut -c3,6)" = "//" ]; then
         NodeRegisteredDate="20${NodeRegisteredDate:6:2}-${NodeRegisteredDate:0:2}-${NodeRegisteredDate:3:2}"
     fi
-    NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*Registering Administrator:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                                     # Ex: NodeRegisteredBy=ADMIN
-    PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*Policy Domain Name:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: PolicyDomain=PD_01
-    CloptSet="$(echo "$ClientInfo" | grep -E "^\s*Optionset:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CloptSet=PD_01_OS_MACOS_2
+    NodeRegisteredBy="$(echo "$ClientInfo" | grep -E "^\s*REG_ADMIN:" | cut -d: -f2- | sed 's/^ *//' | awk '{print $1}')"                                                                     # Ex: NodeRegisteredBy=ADMIN
+    PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*DOMAIN_NAME:" | cut -d: -f2 | sed 's/^ *//')"                                                                                           # Ex: PolicyDomain=CS_CLIENTS
+    CloptSet="$(echo "$ClientInfo" | grep -E "^\s*OPTION_SET:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: CloptSet=MAC_CLIENT
     Role="$(echo "$PVUDetails" | grep -E "^\s*ROLE_EFFECTIVE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: Role=CLIENT
     CPU_type="$(echo "$PVUDetails" | grep -E "^\s*PROC_TYPE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CPU_type=8
     CPU_count="$(echo "$PVUDetails" | grep -E "^\s*PROC_COUNT:" | cut -d: -f2 | sed 's/^ *//')"                                                                                               # Ex: CPU_count=2
@@ -279,7 +343,7 @@ client_info() {
     Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=DAILY_10
     ScheduleStart="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Start Date/Time:" | awk '{print $NF}')"                # Ex: ScheduleStart=08:00:00
     ScheduleDuration="+ $(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain $Schedule f=d" | grep -E "^\s*Duration:" | cut -d: -f2 | sed 's/^ *//')"        # Ex: ScheduleDuration='+ 10 Hour(s)'
-    TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*Transport Method:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: TransportMethod='TLS 1.3'
+    TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*TRANSPORT_METHOD:" | cut -d: -f2 | sed 's/^ *//; s/TLS13/TLS 1.3/')"                                                                 # Ex: TransportMethod='TLS 1.3'
     ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*Backup Delete Allowed\?:" | cut -d: -f2 | sed 's/^ *//')"                                                                      # Ex: ClientCanDeleteBackup=No
     ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP/IP Address:" | cut -d: -f2 | sed 's/^ //')"                                                                               # Ex: ClientLastNetworkTemp='10.7.58.184'
     case "$(echo "$ClientLastNetworkTemp" | cut -d\. -f1-2)" in
@@ -627,7 +691,7 @@ create_one_client_report() {
 server_info
 
 REPORT_DATE="$(date +%F)"
-REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                           # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
+REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                       # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
 
 # Get the activity log for today (saves time to do it only once)
 # Do not include 'ANR2017I Administrator ADMIN issued command:' and a bunch of other stuff
@@ -661,7 +725,7 @@ do
     ErrorMsg=""
     CriticalErrorMsg=""
 
-    # Get the actlog for the client, but only consider the dollowing messages:
+    # Get the actlog for the client, but only consider the following messages:
     # - ANE4954I:  Total number of objects backed up
     # - ANE4961I:  Total number of bytes transferred
     # - ANE4964I:  Elapsed processing time
