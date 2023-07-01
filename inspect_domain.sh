@@ -13,6 +13,34 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
+
+# Some basic stuff
+Today="$(date +%F)"                                                       # Ex: Today=2011-11-11
+NowEpoch=$(date +%s)                                                      # Ex: NowEpoch=1662627432
+Now="$(date +%H:%M)"                                                      # Ex: Now=15:40
+BackupBrokenNumDays="30"                                                  # Number of days before a backup is considered “broken”
+MulSign="&#215;"                                                          # ×
+EmailIcon="&nbsp;&#x1F4E7;"                                               # Ex: 📧
+LQ="&#8220;"                                                              # Left quote: “
+RQ="&#8221;"                                                              # Right quote: ”
+OutDirPrefix="/var/tmp/tsm"
+OutDir="$OutDirPrefix/${DOMAIN/_/\/}"                                     # Ex: OutDir=/var/tmp/tsm/cs/clients
+# Create the OutDir if it doesn't exist:
+# NOTE: it must be created manually on the web server (if it is used)!!!
+if [ ! -d $OutDir ]; then
+    mkdir -p $OutDir
+fi
+ActlogToday="$(mktemp)"
+BackupNeverFile="$(mktemp /tmp/BackupNever.XXXXX)"                        # File to store clients that have never had a backup. Used for the error summary
+BackupBrokenFile="$(mktemp /tmp/BackupBroken.XXXXX)"                      # File to store clients that haven't had backup in '$BackupBrokenNumDays' days. Used for the error summary
+AllConcludedBackups="$(mktemp /tmp/AllConcludedBackups.XXXXX)"            # File to store info about all concluded backups
+LinkReferer="target=\"_blank\" rel=\"noopener noreferrer\""
+SP_WikipediaURL="https://en.wikipedia.org/wiki/IBM_Tivoli_Storage_Manager"
+ReportFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.html"             # Ex: ReportFileHTML='/var/tmp/tsm/cs/servers_2022-11-11.html'
+ErrorFile="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.errors"                # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11.errors'
+ErrorFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}_errors.html"       # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11_errors.html'
+
+
 # Find out where the script resides
 # Get the DirName and ScriptName
 if [ -L "${BASH_SOURCE[0]}" ]; then
@@ -26,6 +54,7 @@ else
     ScriptName="$(basename "${BASH_SOURCE[0]}")"                   # ScriptName=inspect_all_clients.sh
 fi
 ScriptFullName="${ScriptDirName}/${ScriptName}"                    # ScriptFullName=/home/cs-pmo/tsm-server-report/inspect_all_clients.sh
+
 
 # Get the secret password, either from the users home-directory or the script-dir
 if [ -f ~/.tsm_secrets.env ]; then
@@ -49,62 +78,44 @@ fi
 # '<p align="right"><em>\&#8220;tsm-server-report\&#8221; (<a href="https://github.com/Peter-Moller/tsm-server-report" target="_blank" rel="noopener noreferrer">GitHub</a> <span class="glyphicon">\&#xe164;</span>)<br>Department of Computer Science, LTH</em></p>'
 
 
+# More settings (must be here)
+MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"                               # Used for the 'sub-pages' (error.html and individual reports) to link back to the main overview page
+HTML_Template_Head="$ScriptDirName"/report_head.html
+HTML_Template_End="$ScriptDirName"/report_end.html
+HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
+HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
+HTML_Error_Head="$ScriptDirName"/errors_head.html
+SP_ErrorFile="$ScriptDirName"/sp_errors.txt                               # Super-important file containing all errors we want to be aware of. Needs to be updated as new errors are found
+
+
 # Generate the list of clients ('CLIENTS') to traverse by going through the list of policy domains ('DOMAIN')
 # Also, generate a explanatory string for the domains ('Explanation'):
 for item in $DOMAIN; do
     # Test if the $item exists
     if dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query domain $item" &>/dev/null; then
-        CLIENTStmp+="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "query node * domain=$item" | grep -E "^\s*Node Name:" | awk '{print $NF}')"
+        #CLIENTStmp+="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "query node * domain=$item" | grep -E "^\s*Node Name:" | awk '{print $NF}')"
+        CLIENTS+="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=list "SELECT NODE_NAME FROM NODES WHERE DOMAIN_NAME='${item^^}' ORDER BY NODE_NAME" | grep -Ev "^$" | awk '{print $NF}')"
         # Ex: CLIENTStmp+='CS-ABRUCE
         #                  CS-DRIFTPC
         #                  CS-PETERMAC
         #                  CS-PMOLINUX
         #                  CS-TEST'
-        CLIENTStmp+=$'\n'
-        NumClientsTmp=$(echo "$CLIENTStmp" | sort -u | tr '\n' " " | wc -w)  # Ex: NumClients=5
-        ##Explanation+="“$item ($(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//'), $NumClientsTmp nodes) & "
-        Explanation+="“$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')” ($NumClientsTmp nodes) & "
+        #CLIENTStmp+=$'\n'
+        NumClientsTmp=$(echo "$CLIENTS" | wc -l)  # Ex: NumClients=5
+        Explanation+="\${LQ}$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')\${RQ} ($NumClientsTmp nodes) & "
         # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
         Explanation+="Non-existing policy domain: $item & "
     fi
 done
 
-CLIENTS="$(echo "$CLIENTStmp" | sort -u | tr '\n' " ")"  # Ex: CLIENTS='CS-ABRUCE CS-DRIFTPC CS-PETERMAC CS-PMOLINUX CS-TEST '
+#CLIENTS="$(echo "$CLIENTStmp" | tr '\n' " ")"  # Ex: CLIENTS='CS-ABRUCE CS-DRIFTPC CS-PETERMAC CS-PMOLINUX CS-TEST '
 
 # Exit if the list is empty
 if [ -z "$CLIENTS" ]; then
     echo "No clients in the given domains (\"$DOMAIN\")! Exiting"
     exit 1
 fi
-
-
-# Some basic stuff
-Today="$(date +%F)"                                                       # Ex: Today=2011-11-11
-NowEpoch=$(date +%s)                                                      # Ex: NowEpoch=1662627432
-Now="$(date +%H:%M)"                                                      # Ex: Now=15:40
-MulSign="&#215;"                                                          # ×
-OutDirPrefix="/var/tmp/tsm"
-OutDir="$OutDirPrefix/${DOMAIN/_/\/}"                                     # Ex: OutDir=/var/tmp/tsm/cs/clients
-# Create the OutDir if it doesn't exist:
-# NOTE: it must be created manually on the web server (if it is used)!!!
-if [ ! -d $OutDir ]; then
-    mkdir -p $OutDir
-fi
-ActlogToday="$(mktemp)"
-LinkReferer="target=\"_blank\" rel=\"noopener noreferrer\""
-SP_WikipediaURL="https://en.wikipedia.org/wiki/IBM_Tivoli_Storage_Manager"
-HTML_Template_Head="$ScriptDirName"/report_head.html
-HTML_Template_End="$ScriptDirName"/report_end.html
-HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
-HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
-HTML_Error_Head="$ScriptDirName"/errors_head.html
-ErrorIcon="&nbsp;&#x1F4E7;"                                               # Ex: 📧
-ReportFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.html"             # Ex: ReportFileHTML='/var/tmp/tsm/cs/servers_2022-11-11.html'
-ErrorFile="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}.errors"                # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11.errors'
-ErrorFileHTML="${OutDirPrefix}/${DOMAIN/_/\/}_${Today}_errors.html"       # Ex: ErrorFile='/var/tmp/tsm/cs/servers_2022-11-11_errors.html'
-SP_ErrorFile="$ScriptDirName"/sp_errors.txt                               # Super-important file containing all errors we want to be aware of. Needs to be updated as new errors are found
-MainURL="${PUBLICATION_URL}/${DOMAIN/_/\/}"                               # Used for the 'sub-pages' (error.html and individual reports) to link back to the main overview page
 
 
 #   _____   _____    ___   ______   _____       _____  ______      ______   _   _   _   _   _____   _____   _____   _____   _   _   _____ 
@@ -138,9 +149,9 @@ server_info() {
 }
 
 
-# Create a html-file detailing all errors in the indicated DOMAIN today
-# and, if applicable, transport it to the web publication server using 'scp'
-errors_today() {
+# Create the first part of a html-file detailing all errors in the indicated DOMAIN today
+# The file will be concluded by the 'errors_today_second_part' function
+errors_today_first_part() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
@@ -159,7 +170,7 @@ errors_today() {
     # Go thropugh the list of errors [if there are any]
     if [ -n "$ErrorsInTheDailyLog" ]; then
         # Set standard values for email link:
-        EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (&#8220;REASON&#8221;).%0A(In the local log file, you may see this problem as &#8220;ANS...&#8221; but it is the same problem.)%0A"
+        EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (${LQ}REASON${RQ}).%0A(In the local log file, you may see this problem as ${LQ}ANS...${RQ} but it is the same problem.)%0A"
         EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
         EmailLinkTextIBM="Here is a web page at IBM that describes the error in more detail:%0A"
         EmailNoLinkText="We do not have a deeper description of this error."
@@ -179,14 +190,14 @@ errors_today() {
             fi
             # Make not of errors that are not noted in the public overview
             if [ -n "$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f2 | grep -v REPORT)" ]; then
-                DisregardText="<span style=\"color: #555\"><em>(not reported in the client overview)</em></span>"
+                DisregardText='<span style="color: #555"><em>(not reported in the client overview)</em></span>'
                 ErrorHeadText="<strong><em>$ERROR</em></strong>"
             else
                 DisregardText=""
                 ErrorHeadText="<strong>$ERROR</strong>"
             fi
             NewWindowIcon='<span class="glyphicon">&#xe164;</span>'
-            echo "            <table id=\"errors\" style=\"margin-top: 1rem\">" >> "$ErrorFileHTML"
+            echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
             if [ -n "$CS_Error_URL" ]; then
                 InfoLink="<a href=\"$CS_Error_URL\" $LinkReferer>Local info.</a> $NewWindowIcon<br>$IBM_Link $NewWindowIcon"
             else
@@ -196,7 +207,7 @@ errors_today() {
                     InfoLink=""
                 fi
             fi
-            TableHeadLine="				<tr><td colspan=\"4\" bgcolor=\"#bad8e1\"><span class=\"head_fat\">$ErrorHeadText</span> $DisregardText<div class=\"right\">$InfoLink</div><br><span class=\"head_explain\">${ErrorText:-We have no explanation for this error}</span></td></tr>"
+            TableHeadLine='				<tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat">'$ErrorHeadText'</span> '$DisregardText'<div class="right">'$InfoLink'</div><br><span class="head_explain">'${ErrorText:-We have no explanation for this error}'</span></td></tr>'
             echo "				<thead>" >> "$ErrorFileHTML"
             echo "$TableHeadLine" >> "$ErrorFileHTML"
             echo "				</thead>" >> "$ErrorFileHTML"
@@ -207,7 +218,7 @@ errors_today() {
             for Node in $CLIENTS_with_this_error
             do
                 NumUserErrors="$(grep $ERROR $ActlogToday | grep -c $Node)"                                                                                                                   # Ex: NumUserErrors=24
-                ClientInfoForError="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT CONTACT,EMAIL_ADDRESS,CLIENT_OS_NAME FROM NODES WHERE NODE_NAME='$client'")"
+                ClientInfoForError="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT CONTACT,EMAIL_ADDRESS,CLIENT_OS_NAME FROM NODES WHERE NODE_NAME='$Node'")"
                 # Ex: ClientInfoForError='
                 #  CONTACT: CS driftgrupp
                 #  EMAIL_ADDRESS: drift@cs.lth.se
@@ -223,46 +234,19 @@ errors_today() {
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
                 EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
-                TableCell_1="<td width=\"13%\" align=\"right\">$(printf "%'d" $NumUserErrors)&nbsp;$MulSign&nbsp;</td>"             
-                TableCell_2="<td width=\"22%\">$Node</td>"
-                TableCell_3="<td width=\"35%\"><a href=\"mailto:$NodeEmail?&subject=Backup%20error%20$ERROR&body=${EmailBodyText/ /%20/}\">$NodeContact</a>$ErrorIcon</td>"
-                TableCell_4="<td width=\"30%\">$NodeOS</td>"
+                TableCell_1='<td width="13%" align="right">'$(printf "%'d" $NumUserErrors)'&nbsp;'$MulSign'&nbsp;</td>'             
+                TableCell_2='<td width="22%">'$Node'</td>'
+                TableCell_3='<td width="35%"><a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a>'$EmailIcon'</td>'
+                TableCell_4='<td width="30%">'$NodeOS'</td>'
                 LocalLine="				<tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>"
                 echo "$LocalLine" >> "$ErrorFileHTML"
             done
-            echo "				</tbody>" >> "$ErrorFileHTML"
-            echo "			</table>" >> "$ErrorFileHTML"
+            echo '				</tbody>' >> "$ErrorFileHTML"
+            echo '			</table>' >> "$ErrorFileHTML"
         done
     else
-        echo "			<p><strong>No errors found in the domain &#8220;$DOMAIN&#8221;.</strong></p>" >> "$ErrorFileHTML"
+        echo "			<p><strong>No errors found in the domain ${LQ}$DOMAIN${RQ}.</strong></p>" >> "$ErrorFileHTML"
     fi
-    
-    # Put the last lines in the file:
-    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
-    echo '    <p align="center"><a href="'$MainURL'">Back to overview.</a></p>' >> "$ErrorFileHTML"
-    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
-    echo '	</section>' >> "$ErrorFileHTML"
-    echo '	<section>' >> "$ErrorFileHTML"
-    echo '    	<div class="flexbox-container">' >> "$ErrorFileHTML"
-    echo '			<div id="box-explanations">' >> "$ErrorFileHTML"
-    echo '	            <p><strong>Messages, return codes, and error codes:</strong></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANE:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-ane-messages">Client events logged to the server</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANR:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-anr-messages">Server common and platform-specific messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANS:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm">Client messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
-    echo '		    </div>' >> "$ErrorFileHTML"
-    echo '		</div>' >> "$ErrorFileHTML"
-    echo '      <p align="right"><em>Report is generated once per day</em></p>'  >> "$ErrorFileHTML"
-    echo "		${FOOTER_ROW//\\/}" >> "$ErrorFileHTML"
-    echo '  </section>' >> "$ErrorFileHTML"
-    echo '	</div>' >> "$ErrorFileHTML"
-    echo '</body>' >> "$ErrorFileHTML"
-    echo '</html>' >> "$ErrorFileHTML"
-
-    # Copy result if SCP=true
-    if $SCP; then
-        scp "$ErrorFileHTML" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${DOMAIN/_/\/}/errors.html" &>/dev/null
-    fi
-
 }
 
 
@@ -293,14 +277,13 @@ client_info() {
     # TRANSPORT_METHOD: TLS13'
 
     #PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "select * from pvuestimate_details WHERE NODE_NAME = '$client'")"
-    PVUDetailsToLookFor="ROLE_EFFECTIVE,PROC_TYPE,PROC_COUNT,PROC_VENDOR,VENDOR_D,VALUE_FROM_TABLE,VALUE_UNITS,HYPERVISOR,PVU,PROC_VENDOR,PROC_BRAND,PROC_MODEL,VENDOR_D,BRAND_D,MODEL_D"
+    PVUDetailsToLookFor="ROLE_EFFECTIVE,PROC_TYPE,PROC_COUNT,PROC_VENDOR,VALUE_FROM_TABLE,VALUE_UNITS,HYPERVISOR,PVU,PROC_VENDOR,PROC_BRAND,PROC_MODEL,VENDOR_D,BRAND_D,MODEL_D"
     PVUDetails="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "select $PVUDetailsToLookFor from pvuestimate_details WHERE NODE_NAME = '$client'")"
     # Ex: PVUDetails='
     #   ROLE_EFFECTIVE: SERVER
     #        PROC_TYPE: 6
     #       PROC_COUNT: 4
     #      PROC_VENDOR: Intel
-    #         VENDOR_D: Intel(R)
     # VALUE_FROM_TABLE: YES
     #      VALUE_UNITS: 100
     #       HYPERVISOR: VMware
@@ -428,13 +411,13 @@ backup_result() {
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed 's/,//g' | tail -1)"          # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed 's/\ *//' | tail -1)"                    # Ex: TransferredVolume='1,010.32 MB'
     BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                                 # Ex: BackedupElapsedtime='00:46:10'
-    LastFinishDateTemp="$(echo "$AllConcludedBackups" | grep -E "ANR2507I|ANR2579E" | tail -1 | awk '{print $1}')"                                                                            # Ex: LastFinishDateTemp=2022-09-16
+    LastFinishDateTemp="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | tail -1 | awk '{print $1}')"                                                                                   # Ex: LastFinishDateTemp=2022-09-16
     if [ "$(echo "$LastFinishDateTemp" | cut -c3,6)" = "//" ]; then
         LastFinishDate="20${LastFinishDateTemp:6:2}-${LastFinishDateTemp:0:2}-${LastFinishDateTemp:3:2}"
         else
         LastFinishDate="$LastFinishDateTemp"
     fi
-    LastFinishTime="$(echo "$AllConcludedBackups" | grep -E "ANR2507I|ANR2579E" | tail -1 | awk '{print $2}')"                                                                                # Ex: LastFinishTime=12:34:01
+    LastFinishTime="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | tail -1 | awk '{print $2}' | cut -d\. -f1)"                                                                        # Ex: LastFinishTime=12:34:01
     # So, did it end successfully (ANR2507I)?
     if [ -n "$(grep ANR2507I $ClientFile)" ]; then
         BackupStatus="Successful"
@@ -447,11 +430,11 @@ backup_result() {
         BackupStatus=""
         # No backup the last day; we need to investiage!
         # Look for ANR2507I in the total history
-        LastSuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2507I | tail -1 | awk '{print $1" "$2}')"                                                     # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
+        LastSuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2507I | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                             # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
         EpochtimeLastSuccessful=$(date -d "$LastSuccessfulBackup" +"%s")                                                                                                                      # Ex: EpochtimeLastSuccessful=1661709663
         LastSuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                  # Ex: LastSuccessfulNumDays=11
         # The same for ANR2579E:
-        LastUnsuccessfulBackup="$(echo "$AllConcludedBackups" | grep -E "\b${client}\b" | grep ANR2579E | tail -1 | awk '{print $1" "$2}')"                                                   # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
+        LastUnsuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2579E | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                           # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
         EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                                                                            # Ex: EpochtimeLastUnsuccessful=1666094861
         LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                        # Ex: LastSuccessfulNumDays=1
         # If there is a successful backup in the total history, get when that was
@@ -472,15 +455,14 @@ backup_result() {
             fi
         elif [ -z "$ClientTotalNumFiles" ] && [ -z "$ClientTotalSpaceUsedGB" ]; then
             BackupStatus="NEVER"
-            ErrorMsg="Client \"$client\" has never had a backup"
+            ErrorMsg='Client "$client" has never had a backup'
         else
-        # So there is no info about backup but still files on the server. 
+            # So there is no info about backup but still files on the server. 
             # There is no known backup, but there *are* files on the server, it's "complicated"
             BackupStatus=">${ActLogLength} days"
-            #ErrorMsg="No backup in $ActLogLength days but files on server; "
             ErrorMsg="Last contact: $(echo "$ClientLastAccess" | awk '{print $1}'); "
             # Get the number of days since the last contact
-            LastContactEpoch=$(date +%s -d "$ClientLastAccess")                   # Ex: LastContactEpoch='1541068746'
+            LastContactEpoch=$(date +%s -d "$ClientLastAccess")                                                                                                                               # Ex: LastContactEpoch='1541068746'
             DaysSinceLastContact=$(echo "scale=0; $((NowEpoch - LastContactEpoch)) / 86400" | bc -l)
             # Update 2022-10-23: I now know how to get the last date of backup: 
             # Do a 'query filespace $client f=d' and look for "Days Since Last Backup Completed:"
@@ -552,30 +534,30 @@ print_line() {
     fi
     # Set colors
     case "$BackupStatus" in
-        "NEVER" ) TextColor=" style=\"color: red\"" ;;
+        "NEVER" ) TextColor=' style="color: red"'
+                  echo "$client" >> "$BackupNeverFile";;
         * ) TextColor="" ;;
     esac
     # Deal with a backup that kind of works but hasn't been run in a while
-    if [ "${BackupStatus:0:2}" -gt 30 2>/dev/null ]; then
-        TextColor=" style=\"color: orange\""
+    if [ $(echo "$BackupStatus" | awk '{print $1}') -gt $BackupBrokenNumDays 2>/dev/null ]; then
+        TextColor=' style="color: orange"'
+        echo "${client}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
     fi
     # Deleted line - saved for precautions:
     # <td align=\"left\" $TextColor><a href=\"${OC_URL/BACKUPNODE/$client}\">$client</a></td>
-    echo "        <tr class=\"clients\">
-          <td align=\"left\" $TextColor><a href=\"${client,,}.html\">$client</a></td>
-          <td align=\"right\"$TextColor>$(printf "%'d" $BackedupNumfiles)</td>
-          <td align=\"right\"$TextColor>$TransferredVolume</td>
-          <td align=\"left\" $TextColor>$BackeupElapsedtime</td>
-          <td align=\"left\" $TextColor>${BackupStatus/ERROR/- NO BACKUP -}</td>
-          <!--<td align=\"left\" $TextColor>$ClientLastNetwork</td>-->
-          <td align=\"right\"$TextColor>$(printf "%'d" $ClientTotalNumFiles)</td>
-          <td align=\"right\"$TextColor>$(printf "%'d" $ClientTotalSpaceUsedGB)</td>
-          <!--<td align=\"right\"$TextColor>${ClientNumFilespacesOnServer:-0}</td>-->
-          <td align=\"left\" $TextColor>$ClientVersion</td>
-          <td align=\"right\" $TextColor>$PVU</td>
-          <td align=\"left\" $TextColor>$ClientOS</td>
-          <td align=\"left\" $TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td>
-        </tr>" >> $ReportFileHTML
+    echo '        <tr class="clients">
+          <td align="left"  '$TextColor'><a href="'${client,,}'.html">'$client'</a></td>
+          <td align="right" '$TextColor'>'$(printf "%'d" $BackedupNumfiles)'</td>
+          <td align="right" '$TextColor'>'$TransferredVolume'</td>
+          <td align="left"  '$TextColor'>'$BackeupElapsedtime'</td>
+          <td align="left"  '$TextColor'>'${BackupStatus/ERROR/- NO BACKUP -}'</td>
+          <td align="right" '$TextColor'>'$(printf "%'d" $ClientTotalNumFiles)'</td>
+          <td align="right" '$TextColor'>'$(printf "%'d" $ClientTotalSpaceUsedGB)'</td>
+          <td align="left"  '$TextColor'>'$ClientVersion'</td>
+          <td align="right" '$TextColor'>'$PVU'</td>
+          <td align="left"  '$TextColor'>'$ClientOS'</td>
+          <td align="left"  '$TextColor'>'$(echo "$ErrorMsg" | sed 's/<br>$//')'</td>
+        </tr>' >> $ReportFileHTML
 }
 
 # (General – one time – use)
@@ -594,96 +576,87 @@ create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
     cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/" > "$ReportFile"
-    ToolTipText_PolicyDomain="<div class=\"tooltip\"><i>Policy Domain:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_P__x2154121\">policy domain</a>” is an organizational way to group backup clients that share common backup requirements</span></div>"
-    ToolTipText_CloptSet="<div class=\"tooltip\"><i>Cloptset:</i><span class=\"tooltiptext\">A “cloptset” (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>"
-    ToolTipText_Schedule="<div class=\"tooltip\"><i>Schedule:</i><span class=\"tooltiptext\">A “<a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=glossary#gloss_C__x2210629\">schedule</a>” is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>"
-    ToolTipText_BackupDelete="<div class=\"tooltip\"><i>Can delete backup:</i><span class=\"tooltiptext\">Says whether or not a client node can delete files from it’s own backup</span></div>"
-    ToolTipText_Role="<div class=\"tooltip\"><i>Role:</i><span class=\"tooltiptext\">“ROLE_EFFECTIVE”; Actual role based on the values in the ROLE and ROLE_OVERRIDE fields</span></div>"
-    ToolTipText_NumCores="<div class=\"tooltip\"><i>Num cores:</i><span class=\"tooltiptext\">“PROC_TYPE”; Processor type as reported by the client. This value also reflects the number of cores the CPU has</span></div>"
-    ToolTipText_NumCPU="<div class=\"tooltip\"><i>Num CPU:</i><span class=\"tooltiptext\">“PROC_COUNT”; Processor quantity (=number of logical cores)</span></div>"
-    ToolTipText_ValueFromTable="<div class=\"tooltip\"><i>Value from table:</i><span class=\"tooltiptext\">Flag that indicates whether the PVU was calculated based on the IBM PVU table (an XML-file with info on known processors)</span></div>"
-    ToolTipText_VU="<div class=\"tooltip\"><i>Value units:</i><span class=\"tooltiptext\">“VALUE_UNITS”; Assigned processor value unit (PVU) for the processor</span></div>"
-    ToolTipText_CPU_client="<div class=\"tooltip\"><i>CPU (client):</i><span class=\"tooltiptext\">Processor as reported by the client. (PROC_VENDOR + PROC_BRAND + PROC_MODEL)</span></div>"
-    ToolTipText_CPU_IBM="<div class=\"tooltip\"><i>CPU (IBM):</i><span class=\"tooltiptext\">Processor from the PVU table (VENDOR_D + BRAND_D + MODEL_D)</span></div>"
-    ToolTipText_PVU="<div class=\"tooltip\"><i>PVU:</i><span class=\"tooltiptext\">“Processor Value Units”; an IBM-specific measurement that governs financial cost for the backup client (Num cores * Num CPU * Value units)</span></div>"
-    ConflictedText="<em>(A backup </em>has<em> been performed, but a <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR2579E\" target=\"_blank\" rel=\"noopener noreferrer\">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>"
+    ToolTipText_PolicyDomain='div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
+    ToolTipText_CloptSet='<div class="tooltip"><i>Cloptset:</i><span class="tooltiptext">A '${LQ}'cloptset'${RQ}' (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>'
+    ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
+    ToolTipText_BackupDelete='<div class="tooltip"><i>Can delete backup:</i><span class="tooltiptext">Says whether or not a client node can delete files from it’s own backup</span></div>'
+    ToolTipText_Role='<div class="tooltip"><i>Role:</i><span class="tooltiptext">'${LQ}'ROLE_EFFECTIVE'${RQ}'; Actual role based on the values in the ROLE and ROLE_OVERRIDE fields</span></div>'
+    ToolTipText_NumCores='<div class="tooltip"><i>Num cores:</i><span class="tooltiptext">'${LQ}'PROC_TYPE'${RQ}'; Processor type as reported by the client. This value also reflects the number of cores the CPU has</span></div>'
+    ToolTipText_NumCPU='<div class="tooltip"><i>Num CPU:</i><span class="tooltiptext">'${LQ}'PROC_COUNT'${RQ}'; Processor quantity (=number of logical cores)</span></div>'
+    ToolTipText_ValueFromTable='<div class="tooltip"><i>Value from table:</i><span class="tooltiptext">Flag that indicates whether the PVU was calculated based on the IBM PVU table (an XML-file with info on known processors)</span></div>'
+    ToolTipText_VU='<div class="tooltip"><i>Value units:</i><span class="tooltiptext">'${LQ}'VALUE_UNITS'${RQ}'; Assigned processor value unit (PVU) for the processor</span></div>'
+    ToolTipText_CPU_client='<div class="tooltip"><i>CPU (client):</i><span class="tooltiptext">Processor as reported by the client. (PROC_VENDOR + PROC_BRAND + PROC_MODEL)</span></div>'
+    ToolTipText_CPU_IBM='<div class="tooltip"><i>CPU (IBM):</i><span class="tooltiptext">Processor from the PVU table (VENDOR_D + BRAND_D + MODEL_D)</span></div>'
+    ToolTipText_PVU='<div class="tooltip"><i>PVU:</i><span class="tooltiptext">'${LQ}'Processor Value Units'${RQ}'; an IBM-specific measurement that governs financial cost for the backup client (Num cores * Num CPU * Value units)</span></div>'
+    ConflictedText='<em>(A backup </em>has<em> been performed, but a <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=list-anr0010w#ANR2579E" target="_blank" rel="noopener noreferrer">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>'
     # Get more detail for macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
         ClientOSLevel="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2 | sed 's/^\ //')"                                                                                 # Ex: ClientOSLevel='10.16.0'
         # Get a full name for the version (see https://en.wikipedia.org/wiki/Darwin_(operating_system)):
         case "${ClientOSLevel:0:5}" in
-            10.10) ClientOS="OS X ${ClientOSLevel} “Yosemite”" ;;
-            10.11) ClientOS="OS X ${ClientOSLevel} “El Capitan”" ;;
-            10.12) ClientOS="macOS ${ClientOSLevel} “Sierra”" ;;
-            10.13) ClientOS="macOS ${ClientOSLevel} “High Sierra”" ;;
-            10.14) ClientOS="macOS ${ClientOSLevel} “Mojave”" ;;
-            10.15) ClientOS="macOS ${ClientOSLevel} “Catalina”" ;;
-            11.*) ClientOS="macOS ${ClientOSLevel} “Big Sur”" ;;
-            12.*) ClientOS="macOS ${ClientOSLevel} “Monterey”" ;;
-            10.16) ClientOS="macOS ${ClientOSLevel} “Ventura”" ;;
+            10.10) ClientOS="OS X ${ClientOSLevel} ${LQ}Yosemite${RQ}" ;;
+            10.11) ClientOS="OS X ${ClientOSLevel} ${LQ}El Capitan${RQ}" ;;
+            10.12) ClientOS="macOS ${ClientOSLevel} ${LQ}Sierra${RQ}" ;;
+            10.13) ClientOS="macOS ${ClientOSLevel} ${LQ}High Sierra${RQ}" ;;
+            10.14) ClientOS="macOS ${ClientOSLevel} ${LQ}Mojave${RQ}" ;;
+            10.15) ClientOS="macOS ${ClientOSLevel} ${LQ}Catalina${RQ}" ;;
+            11.*) ClientOS="macOS ${ClientOSLevel} ${LQ}Big Sur${RQ}" ;;
+            12.*) ClientOS="macOS ${ClientOSLevel} ${LQ}Monterey${RQ}" ;;
+            10.16) ClientOS="macOS ${ClientOSLevel} ${LQ}Ventura${RQ}" ;;
             *) ClientOS="macOS ($ClientOSLevel)" ;;
         esac
     fi
-    echo "        <tr><th colspan=\"2\">Information about the node</th></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Contact:</i></td><td align=\"left\">$ContactName</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Email address:</i></td><td align=\"left\">$ContactEmail</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Node registered by:</i></td><td align=\"left\">${NodeRegisteredBy:--unknown-} on ${NodeRegisteredDate:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_PolicyDomain</td><td align=\"left\">${PolicyDomain:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_CloptSet</td><td align=\"left\">${CloptSet:--unknown-}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_Schedule</td><td align=\"left\">${Schedule:--unknown-} ($ScheduleStart ${ScheduleDuration,,})</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Transport Method:</i></td><td align=\"left\">${TransportMethod:-unknown}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Connected to Server:</i></td><td align=\"left\">${ServerName:--} (<a href=\"$SP_WikipediaURL\" $LinkReferer>Spectrum Protect</a> <a href=\"$SP_WhatsNewURL\" $LinkReferer>$ServerVersion</a>)</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_BackupDelete</td><td align=\"left\">${ClientCanDeleteBackup}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Client version:</i></td><td align=\"left\">$ClientVersion</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Client OS:</i></td><td align=\"left\">$ClientOS</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Client last access:</i></td><td align=\"left\">${ClientLastAccess:-no info}</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Client last network:</i></td><td align=\"left\">${ClientLastNetwork:-no info}</td></tr>" >> $ReportFile
+    echo '        <tr><th colspan="2">Information about the node</th></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Contact:</i></td><td align="left">'$ContactName'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Email address:</i></td><td align="left">'$ContactEmail'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Node registered by:</i></td><td align="left">'${NodeRegisteredBy:--unknown-}' on '${NodeRegisteredDate:--unknown-}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_PolicyDomain'</td><td align="left">'${PolicyDomain:--unknown-}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_CloptSet'</td><td align="left">'${CloptSet:--unknown-}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_Schedule'</td><td align="left">'${Schedule:--unknown-}' ('$ScheduleStart' '${ScheduleDuration,,}')</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Transport Method:</i></td><td align="left">'${TransportMethod:-unknown}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Connected to Server:</i></td><td align="left">'${ServerName:--}' (<a href="'$SP_WikipediaURL'" '$LinkReferer'>Spectrum Protect</a> <a href="'$SP_WhatsNewURL'" '$LinkReferer'>'$ServerVersion'</a>)</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_BackupDelete'</td><td align="left">'${ClientCanDeleteBackup}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Client version:</i></td><td align="left">'$ClientVersion'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Client OS:</i></td><td align="left">'$ClientOS'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Client last access:</i></td><td align="left">'${ClientLastAccess:-no info}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Client last network:</i></td><td align="left">'${ClientLastNetwork:-no info}'</td></tr>' >> $ReportFile
     # Fix the strange situation where a backup has taken place but Return code 12 says it hasn't
     if [ "$BackupStatus" = "Conflicted!!" ]; then
         BackupStatus="Conflicted!!<br>$ConflictedText"
     fi
     # Print information about the backup the specified time period:
-    # Set colors
-    case "$BackupStatus" in
-        "NEVER" ) TextColor=" style=\"color: red\"" ;;
-        * ) TextColor="" ;;
-    esac
-    # Deal with a backup that kind of works but hasn't been run in a while
-    if [ "${BackupStatus:0:2}" -gt 30 2>/dev/null ]; then
-        TextColor=" style=\"color: orange\""
-    fi
-    echo "        <tr><th colspan=\"2\">Information about backup today:</th></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Backup Status:</i></td><td align=\"left\"$TextColor>${BackupStatus//_/ }</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Nbr. files:</i></td><td align=\"left\"$TextColor>$(printf "%'d" $BackedupNumfiles)</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Bytes transferred:</i></td><td align=\"left\"$TextColor>$TransferredVolume</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Time elapsed:</i></td><td align=\"left\"$TextColor>$BackeupElapsedtime</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Backup concluded:</i></td><td align=\"left\"$TextColor>$LastFinishDate $LastFinishTime</td></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\"><i>Errors encountered:</i></td><td align=\"left\"$TextColor>$(echo "$ErrorMsg" | sed 's/<br>$//')</td></tr>" >> $ReportFile
+    echo '        <tr><th colspan="2">Information about backup today:</th></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Backup Status:</i></td><td align="left"'$TextColor'>'${BackupStatus//_/ }'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Nbr. files:</i></td><td align="left"'$TextColor'>'$(printf "%'d" $BackedupNumfiles)'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Bytes transferred:</i></td><td align="left"'$TextColor'>'$TransferredVolume'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Time elapsed:</i></td><td align="left"'$TextColor'>'$BackeupElapsedtime'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Backup concluded:</i></td><td align="left"'$TextColor'>'$LastFinishDate' '$LastFinishTime'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Errors encountered:</i></td><td align="left"'$TextColor'>'$(echo "$ErrorMsg" | sed 's/<br>$//')'</td></tr>' >> $ReportFile
     # License information
     
-    echo "        <tr><th colspan=\"2\">License information:</th></tr>" >> $ReportFile
-    echo "        <tr><td align=\"right\">$ToolTipText_Role</td><td align=\"left\">$Role</td></tr>" >> $ReportFile
+    echo '        <tr><th colspan="2">License information:</th></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_Role'</td><td align="left">'$Role'</td></tr>' >> $ReportFile
     if [ "${Role,,}" = "server" ]; then
-        echo "        <tr><td align=\"right\">$ToolTipText_NumCores</td><td align=\"left\">$CPU_type</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_NumCPU</td><td align=\"left\">$CPU_count</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\"><i>Hypervisor:</i></td><td align=\"left\">$Hypervisor</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_ValueFromTable</td><td align=\"left\">${ValueFromTable,,}</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_VU</td><td align=\"left\">$ValueUnits</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_CPU_client</td><td align=\"left\">$CPU_Client</td></tr>" >> $ReportFile
-        echo "        <tr><td align=\"right\">$ToolTipText_CPU_IBM</td><td align=\"left\">$CPU_IBM</td></tr>" >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_NumCores'</td><td align="left">'$CPU_type'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_NumCPU'</td><td align="left">'$CPU_count'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right"><i>Hypervisor:</i></td><td align="left">'$Hypervisor'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_ValueFromTable'</td><td align="left">'${ValueFromTable,,}'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_VU'</td><td align="left">'$ValueUnits'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_CPU_client'</td><td align="left">'$CPU_Client'</td></tr>' >> $ReportFile
+        echo '        <tr><td align="right">'$ToolTipText_CPU_IBM'</td><td align="left">'$CPU_IBM'</td></tr>' >> $ReportFile
     fi
-    echo "        <tr><td align=\"right\">$ToolTipText_PVU</td><td align=\"left\">$PVU</td></tr>" >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_PVU'</td><td align="left">'$PVU'</td></tr>' >> $ReportFile
 
-    echo "      </tbody>" >> $ReportFile
-    echo "    </table>" >> $ReportFile
-    echo "    <p>&nbsp;</p>" >> $ReportFile
+    echo '      </tbody>' >> $ReportFile
+    echo '    </table>' >> $ReportFile
+    echo '    <p>&nbsp;</p>' >> $ReportFile
     # Print info about the client on the server
-    echo "    <table id=\"information\">" >> $ReportFile
-    echo "      <thead>" >> $ReportFile
-    echo "        <tr><th colspan=\"8\">Client usage of server resources:</th></tr>" >> $ReportFile
-    echo "      </thead>" >> $ReportFile
-    echo "      <tbody>" >> $ReportFile
-    echo "        <tr><td><i>Filespace Name</i></td><td align=\"right\"><i>FSID</i></td><td><i>Type</i></td><td align=\"right\"><i>Nbr files</i></td><td align=\"right\"><i>Space Used [GB]</i></td><td align=\"right\"><i>Usage</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>" >> $ReportFile
+    echo '    <table id="information">' >> $ReportFile
+    echo '      <thead>' >> $ReportFile
+    echo '        <tr><th colspan="8">Client usage of server resources:</th></tr>' >> $ReportFile
+    echo '      </thead>' >> $ReportFile
+    echo '      <tbody>' >> $ReportFile
+    echo '        <tr><td><i>Filespace Name</i></td><td align="right"><i>FSID</i></td><td><i>Type</i></td><td align="right"><i>Nbr files</i></td><td align="right"><i>Space Used [GB]</i></td><td align="right"><i>Usage</i></td><td><i>Last backup</i></td><td><i>Days ago</i></td> </tr>' >> $ReportFile
     FSIDs="$(echo "$ClientOccupancy" | grep -E "^\s*FILESPACE_ID:" | cut -d: -f2 | tr '\n' ' ')"                                                                                                      # Ex: FSIDs=' 2  1 '
     for fsid in $FSIDs
     do
@@ -713,7 +686,7 @@ create_one_client_report() {
             LastBackupDate="20${LastBackupDate:6:2}-${LastBackupDate:0:2}-${LastBackupDate:3:2}"
         fi
         LastBackupNumDays="$(echo "$FSInfo" | grep -E "Days Since Last Backup Completed:" | cut -d: -f2 | awk '{print $1}' | sed 's/[,<]//g')"                                                # Ex: LastBackupNumDays='<1'
-        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">${NbrFiles:-0}</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td align=\"right\">$SpaceUsage</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
+        echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">$(printf "%'d" ${NbrFiles:-0})</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td align=\"right\">$SpaceUsage</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
     done
     case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
         "macos"   ) LogFile="<code>/Library/Logs/tivoli/tsm</code>" ;;
@@ -725,6 +698,78 @@ create_one_client_report() {
     # Copy result if SCP=true
     if $SCP; then
         scp "$ReportFile" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${DOMAIN/_/\/}/" &>/dev/null
+    fi
+}
+
+
+# This concludes the error web page by adding the following:
+# - list of clients that have never had any backup (from '$BackupNeverFile')
+# - list of clients who have had backup, but not recently (from '$BackupBrokenFile')
+# Also, if applicable, will transport the web page to the web publication server using 'scp'
+errors_today_second_part() {
+    # Go through the two possible files with info about broken backup
+    if [ -f "$BackupNeverFile" ]; then
+        echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
+        echo '              <thead>' >> "$ErrorFileHTML"
+        echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client without <em>any</em> backup</strong></span></td></tr>' >> "$ErrorFileHTML"
+        echo '              </thead>' >> "$ErrorFileHTML"
+        echo '              <tbody>' >> "$ErrorFileHTML"
+        while read -r ROW
+        do
+            TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
+            TableCell_2='<td width="87%" colspan="3">'$ROW'</td>'
+            echo '             <tr>'${TableCell_1}${TableCell_2}'</tr>' >> "$ErrorFileHTML"
+        done <<< "$(cat $BackupNeverFile)"
+        echo '              </tbody>' >> "$ErrorFileHTML"
+        echo '          </table>' >> "$ErrorFileHTML"
+    fi
+    if [ -f "$BackupBrokenFile" ]; then
+        echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
+        echo '              <thead>' >> "$ErrorFileHTML"
+        echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client that have not had a backup in '$BackupBrokenNumDays' days or more</strong></span></td></tr>' >> "$ErrorFileHTML"
+        echo '              </thead>' >> "$ErrorFileHTML"
+        echo '              <tbody>' >> "$ErrorFileHTML"
+        while IFS=: read -r CLIENT DAYS CONTACT EMAIL
+        do
+            TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
+            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AIt has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
+            EmailLinkText="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
+            EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
+            EmailBodyText="${EmailGreetingText}${EmailLinkText}${EmailEndText}"
+            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            TableCell_3='<td width="35%">'$ContactEmail'</td>'
+            TableCell_4='<td width="30%">'$DAYS'</td>'
+            echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
+        done <<< "$(cat $BackupBrokenFile)"
+        echo '              </tbody>' >> "$ErrorFileHTML"
+        echo '          </table>' >> "$ErrorFileHTML"
+    fi
+
+    # Put the last lines in the file:
+    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
+    echo '    <p align="center"><a href="'$MainURL'">Back to overview.</a></p>' >> "$ErrorFileHTML"
+    echo '    <p>&nbsp;</p>' >> "$ErrorFileHTML"
+    echo '	</section>' >> "$ErrorFileHTML"
+    echo '	<section>' >> "$ErrorFileHTML"
+    echo '    	<div class="flexbox-container">' >> "$ErrorFileHTML"
+    echo '			<div id="box-explanations">' >> "$ErrorFileHTML"
+    echo '	            <p><strong>Messages, return codes, and error codes:</strong></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANE:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-ane-messages">Client events logged to the server</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANR:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-anr-messages">Server common and platform-specific messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANS:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm">Client messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '		    </div>' >> "$ErrorFileHTML"
+    echo '		</div>' >> "$ErrorFileHTML"
+    echo '      <p align="right"><em>Report is generated once per day</em></p>'  >> "$ErrorFileHTML"
+    echo "		${FOOTER_ROW//\\/}" >> "$ErrorFileHTML"
+    echo '  </section>' >> "$ErrorFileHTML"
+    echo '	</div>' >> "$ErrorFileHTML"
+    echo '</body>' >> "$ErrorFileHTML"
+    echo '</html>' >> "$ErrorFileHTML"
+
+    # Copy result if SCP=true
+    if $SCP; then
+        scp "$ErrorFileHTML" "${SCP_USER}@${SCP_HOST}:${SCP_DIR}${DOMAIN/_/\/}/errors.html" &>/dev/null
     fi
 }
 
@@ -753,28 +798,29 @@ dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today
 # Ex:
 # 2023-06-30 10:00:04	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
 # 2023-06-30 10:02:37	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
-AllConcludedBackups="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -TABdelimited "select DATE_TIME,MESSAGE FROM ACTLOG WHERE MESSAGE LIKE 'ANR2579E%' OR MESSAGE LIKE 'ANR2507I%'")"              # Time: ≈ 10 s
+dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -TABdelimited "select DATE_TIME,MESSAGE FROM ACTLOG WHERE MESSAGE LIKE 'ANR2579E%' OR MESSAGE LIKE 'ANR2507I%'" > "$AllConcludedBackups"              # Time: ≈ 10 s
 # Ex:
 # 2023-06-30 10:00:04.000000	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
 # 2023-06-30 10:02:37.000000	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
 
 
 # Get the errors experienced today
-errors_today
+errors_today_first_part
 
 echo "To: $RECIPIENT" > $ReportFileHTML
 echo "Subject: Backup report for ${DOMAIN%; }" >> $ReportFileHTML
 echo "Content-Type: text/html" >> $ReportFileHTML
 echo  >> $ReportFileHTML
 if [ -n "$PUBLICATION_URL" ]; then
-    echo "<a href=\"${PUBLICATION_URL}/${DOMAIN/_/\/}\">${PUBLICATION_URL}/${DOMAIN/_/\/}</a>" >> $ReportFileHTML
+    echo '<a href="'${PUBLICATION_URL}'/'${DOMAIN/_/\/}'">'${PUBLICATION_URL}'/'${DOMAIN/_/\/}'</a>' >> $ReportFileHTML
 fi
 echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
-SERVER_STRING="running <a href=\"$SP_OverviewURL $LinkReferer\">Spectrum Protect</a> version <a href=\"$SP_WhatsNewURL $LinkReferer\">$ServerVersion</a>"
-REPORT_HEAD="Backup report for ${Explanation% & } on server “$ServerName” ($SERVER_STRING) "
+SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Spectrum Protect</a> version <a href="'$SP_WhatsNewURL' '$LinkReferer'">'$ServerVersion'</a>'
+REPORT_HEAD="Backup report for ${Explanation% & } on server “${ServerName}” ($SERVER_STRING) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATETIME;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+
 
 # Loop through the list of clients
 for client in $CLIENTS
@@ -814,6 +860,7 @@ do
     rm $ClientFile
 done
 
+
 # Calculate elapsed time
 Then=$(date +%s)
 ElapsedTime=$(( Then - NowEpoch ))
@@ -821,7 +868,14 @@ REPORT_TIME="$(date +%H:%M)"
 #REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m $((ElapsedTime%60))s"
 REPORT_GENERATION_TIME="$((ElapsedTime%3600/60))m"
 
+
+# Conclude (and upload) the error report file:
+errors_today_second_part
+
+
+# Get the recent version of the BA client software:
 get_latest_client_versions
+
 
 #cat "$HTML_Template_End" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 cat "$HTML_Template_End" | sed "s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
