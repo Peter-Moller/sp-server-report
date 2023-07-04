@@ -128,14 +128,31 @@ fi
 
 # Get summary of vital parameters for the server
 server_info() {
-    ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
-    ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.16
+    #ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
+    #ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.16
+    #ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
+    #ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
+    #EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
+    ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LIST "SELECT SERVER_NAME,ACTLOGRETENTION,EVENTRETENTION,VERSION,RELEASE,LEVEL,SUBLEVEL FROM STATUS")"
+    # Ex: ServerInfo='
+    #     SERVER_NAME: TSM4
+    # ACTLOGRETENTION: 30
+    #  EVENTRETENTION: 14
+    #         VERSION: 8
+    #         RELEASE: 1
+    #           LEVEL: 16
+    #        SUBLEVEL: 0'
+    ServerVERSION="$(echo "$ServerInfo" | grep "VERSION:" | awk '{print $NF}')"                                                                                                               # Ex: ServerVERSION=8
+    ServerRELEASE="$(echo "$ServerInfo" | grep "RELEASE:" | awk '{print $NF}')"                                                                                                               # Ex: ServerRELEASE=1
+    ServerLEVEL="$(echo "$ServerInfo" | grep -E "^\s*LEVEL:" | awk '{print $NF}')"                                                                                                            # Ex: ServerLEVEL=16
+    ServerSUBLEVEL="$(echo "$ServerInfo" | grep "SUBLEVEL:" | awk '{print $NF}')"                                                                                                             # Ex: ServerSUBLEVEL=0
+    ServerVersion="$ServerVERSION.$ServerRELEASE.$ServerLEVEL"                                                                                                                                # Ex: ServerVersion=8.1.16
+    ServerName="$(echo "$ServerInfo" | grep "SERVER_NAME:" | awk '{print $NF}')"                                                                                                              # Ex: ServerName=TSM4
+    ActLogLength="$(echo "$ServerInfo" | grep "ACTLOGRETENTION:" | awk '{print $NF}')"                                                                                                        # Ex: ActLogLength=30
+    EventLogLength="$(echo "$ServerInfo" | grep "EVENTRETENTION:" | awk '{print $NF}')"                                                                                                       # Ex: EventLogLength=14
+    OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     SP_WhatsNewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=servers-whats-new"
     SP_OverviewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=concepts-spectrum-protect-overview"
-    ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
-    ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
-    EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
-    OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
         #StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
@@ -254,7 +271,7 @@ errors_today_first_part() {
 # Get basic data for a single client
 client_info() {
     #ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query node $client f=d")"
-    NodeDetailsToLookFor="BACKDELETE,CLIENT_LEVEL,CLIENT_OS_LEVEL,CLIENT_OS_NAME,CLIENT_RELEASE,CLIENT_SUBLEVEL,CLIENT_VERSION,COMPRESSION,CONTACT,DOMAIN_NAME,EMAIL_ADDRESS,LASTACC_TIME,NODE_NAME,OPTION_SET,REG_ADMIN,REG_TIME,TCP_ADDRESS,TRANSPORT_METHOD"
+    NodeDetailsToLookFor="BACKDELETE,CLIENT_LEVEL,CLIENT_OS_LEVEL,CLIENT_OS_NAME,CLIENT_RELEASE,CLIENT_SUBLEVEL,CLIENT_VERSION,COMPRESSION,CONTACT,DOMAIN_NAME,EMAIL_ADDRESS,LASTACC_TIME,NODE_NAME,OPTION_SET,REG_ADMIN,REG_TIME,SESSION_SECURITY,TCP_ADDRESS,TRANSPORT_METHOD"
     ClientInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT $NodeDetailsToLookFor FROM NODES WHERE NODE_NAME='$client'")"
     # Ex: ClientInfo='
     #       BACKDELETE: NO
@@ -294,6 +311,29 @@ client_info() {
     #         VENDOR_D: Intel(R)
     #          BRAND_D: Xeon(R) or Pentium(R)
     #          MODEL_D: All Existing'
+
+    FilespaceBackupDates="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt  "SELECT FILESPACE_ID,BACKUP_START,BACKUP_END FROM FILESPACES WHERE NODE_NAME='$client'" | grep -Ev "^$" | cut -d\. -f1)"
+    # Ex: FilespaceBackupDates='
+    # FILESPACE_ID: 3
+    # BACKUP_START: 2023-07-01 21:43:45
+    #   BACKUP_END: 2023-07-01 21:57:42
+    # FILESPACE_ID: 5
+    # BACKUP_START: 2023-07-01 21:57:36
+    #   BACKUP_END: 2023-07-01 21:57:43
+    # FILESPACE_ID: 2
+    # BACKUP_START: 2023-07-01 21:57:04
+    #   BACKUP_END: 2023-07-01 21:57:42
+    # FILESPACE_ID: 4
+    # BACKUP_START: 2023-07-01 21:57:35
+    #   BACKUP_END: 2023-07-01 21:57:42
+    # FILESPACE_ID: 1
+    # BACKUP_START: 2023-07-01 21:43:45
+    #   BACKUP_END: 2023-07-01 21:43:45'
+    # or
+    # FilespaceBackupDates='
+    # FILESPACE_ID: 1
+    # BACKUP_START: 2023-06-27 10:34:46
+    #   BACKUP_END: '
 
 
     ClientVer="$(echo "$ClientInfo" | grep -E "^\s*CLIENT_VERSION:" | cut -d: -f2 | sed 's/^ //')"                                                                                            # Ex: ClientVer=8
@@ -343,6 +383,7 @@ client_info() {
     Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=ALL_DAY
     ScheduleStart="$(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*STARTTIME:" | cut -d: -f2- | sed 's/^ //')"                                                                  # Ex: ScheduleStart=04:00:00
     ScheduleDuration="+ $(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*DURATION:|^\s*DURUNITS:" | cut -d: -f2- | tr -d '\n' | sed 's/^ //')"                                   # Ex: ScheduleDuration='+ 18 HOURS'
+    SessionSecurity="$(echo "$ClientInfo" | grep -E "^\s*SESSION_SECURITY:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: SessionSecurity=Strict
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*TRANSPORT_METHOD:" | cut -d: -f2 | sed 's/^ *//; s/TLS13/TLS 1.3/')"                                                                 # Ex: TransportMethod='TLS 1.3'
     ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*BACKDELETE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: ClientCanDeleteBackup=YES
     ClientLastNetworkTemp="$(echo "$ClientInfo" | grep -Ei "^\s*TCP_ADDRESS:" | cut -d: -f2 | sed 's/^ //')"                                                                                  # Ex: ClientLastNetworkTemp='10.7.58.184'
@@ -411,13 +452,18 @@ backup_result() {
     BackedupNumfiles="$(grep ANE4954I $ClientFile | sed 's/\xe2\x80\xaf/,/' | grep -Eo "Total number of objects backed up:\s*[0-9,]*" | awk '{print $NF}' | sed 's/,//g' | tail -1)"          # Ex: BackedupNumfiles='3483'
     TransferredVolume="$(grep ANE4961I $ClientFile | grep -Eo "Total number of bytes transferred:\s*[0-9,.]*\s[KMG]?B" | tail -1 | cut -d: -f2 | sed 's/\ *//' | tail -1)"                    # Ex: TransferredVolume='1,010.32 MB'
     BackeupElapsedtime="$(grep ANE4964I $ClientFile | grep -Eo "Elapsed processing time:\s*[0-9:]*" | tail -1 | awk '{print $NF}' | tail -1)"                                                 # Ex: BackedupElapsedtime='00:46:10'
-    LastFinishDateTemp="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | tail -1 | awk '{print $1}')"                                                                                   # Ex: LastFinishDateTemp=2022-09-16
+    #LastFinishDateTemp="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | tail -1 | awk '{print $1}')"                                                                                   # Ex: LastFinishDateTemp=2022-09-16
+    LastFinishDateTemp="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | grep -E "\s$client\s" | tail -1 | awk '{print $1}')"                                                           # Ex: LastFinishDateTemp=2023-07-02
+    # Deal with stupid US date format. (Probably not needed any longer since SQL questions seems to deliver sane dates)
     if [ "$(echo "$LastFinishDateTemp" | cut -c3,6)" = "//" ]; then
         LastFinishDate="20${LastFinishDateTemp:6:2}-${LastFinishDateTemp:0:2}-${LastFinishDateTemp:3:2}"
         else
         LastFinishDate="$LastFinishDateTemp"
     fi
-    LastFinishTime="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | tail -1 | awk '{print $2}' | cut -d\. -f1)"                                                                        # Ex: LastFinishTime=12:34:01
+    LastFinishTime="$(grep -E "ANR2507I|ANR2579E" "$AllConcludedBackups" | grep -E "\s$client\s" | tail -1 | awk '{print $2}' | cut -d\. -f1)"                                                # Ex: LastFinishTime=12:34:01
+
+
+
     # So, did it end successfully (ANR2507I)?
     if [ -n "$(grep ANR2507I $ClientFile)" ]; then
         BackupStatus="Successful"
@@ -429,14 +475,55 @@ backup_result() {
         # We need to get historical information (i.e. NOT look to ClientFile but rather AllConcludedBackups)
         BackupStatus=""
         # No backup the last day; we need to investiage!
+
+
+        # New method of finding when backup concluded
+        # First, When backup was started
+        BackupStart="$(echo "$FilespaceBackupDates" | grep "BACKUP_START:" | sort | tail -1 | awk '{print $2" "$3}')"                                                                             # Ex: BackupStart='2023-07-01 21:57:36'
+        if [ ! "$BackupStart" = " " ]; then
+            BackupStartEpoch="$(date -d "$BackupStart" +%s)"                                                                                                                                      # Ex: BackupStartEpoch=1688241456
+            SecsSinceBackupStart=$(( NowEpoch - BackupStartEpoch ))                                                                                                                               # Ex: SecsSinceBackupStart=536886
+            DaysSinceBackupStart=$(( (SecsSinceBackupStart+40700) / 81400 ))                                                                                                                      # Ex: DaysSinceBackupStart=6
+        else
+            BackupStartEpoch=0
+            SecsSinceBackupStart=0
+            DaysSinceBackupStart=0
+        fi
+        # When was it ended?
+        BackupEnd="$(echo "$FilespaceBackupDates" | grep "BACKUP_END:" | sort | tail -1 | awk '{print $2" "$3}')"                                                                                 # Ex: BackupEnd='2023-07-01 21:57:43'
+        if [ ! "$BackupEnd" = " " ]; then
+            BackupEndEpoch="$(date -d "$BackupEnd" +%s)"                                                                                                                                          # Ex: BackupEndEpoch=1688241463
+            SecsSinceBackupEnd=$(( NowEpoch - BackupEndEpoch ))                                                                                                                                   # Ex: SecsSinceBackupEnd=536886
+            DaysSinceBackupEnd=$(( (SecsSinceBackupEnd+40700) / 81400 ))                                                                                                                          # Ex: DaysSinceBackupStart=6
+        else
+            BackupEndEpoch=0
+            SecsSinceBackupEnd=0
+            DaysSinceBackupEnd=0
+        fi
+
+        # Which is newer?
+        # If the end is AFTER the beginning, one can assume everything went well
+        if [ $BackupEndEpoch -gt $BackupStartEpoch ]; then
+            BackupStatus="Successful"
+            BackupDaysAgo=$DaysSinceBackupStart
+        else
+            BackupStatus="Incomplete"
+            BackupDaysAgo=$DaysSinceBackupStart
+            # We know what day to dig for in the actlog: get it!
+            ActLogLastDay=""
+            # Get the finish code:
+            FinishCode="$(grep "$(echo "$BackupStart" | awk '{print $1}') .* $client" $)"
+        fi
+
+
         # Look for ANR2507I in the total history
-        LastSuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2507I | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                             # Ex: LastSuccessfulBackup='08/28/2022 20:01:03'
+        LastSuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2507I | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                             # Ex: LastSuccessfulBackup='2023-06-18 15:52:46'
         EpochtimeLastSuccessful=$(date -d "$LastSuccessfulBackup" +"%s")                                                                                                                      # Ex: EpochtimeLastSuccessful=1661709663
         LastSuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastSuccessful)) / 81400" | bc)                                                                                                  # Ex: LastSuccessfulNumDays=11
         # The same for ANR2579E:
-        LastUnsuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2579E | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                           # Ex: LastUnsuccessfulBackup='10/18/22 14:07:41'
-        EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                                                                            # Ex: EpochtimeLastUnsuccessful=1666094861
-        LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                        # Ex: LastSuccessfulNumDays=1
+        LastUnsuccessfulBackup="$(grep -E "\b${client}\b" "$AllConcludedBackups" | grep ANR2579E | tail -1 | awk '{print $1" "$2}' | cut -d\. -f1)"                                           # Ex: LastUnsuccessfulBackup='2023-05-11 10:06:45'
+        EpochtimeLastUnsuccessfulBackup=$(date -d "$LastUnsuccessfulBackup" +"%s")                                                                                                            # Ex: EpochtimeLastUnsuccessfulBackup=1683792405
+        LastUnsuccessfulNumDays=$(echo "$((NowEpoch - EpochtimeLastUnsuccessfulBackup)) / 81400" | bc)                                                                                        # Ex: LastUnsuccessfulNumDays=57
         # If there is a successful backup in the total history, get when that was
         if [ -n "$LastSuccessfulBackup" ]; then
             if [ $LastSuccessfulNumDays -eq 0 ]; then
@@ -455,7 +542,7 @@ backup_result() {
             fi
         elif [ -z "$ClientTotalNumFiles" ] && [ -z "$ClientTotalSpaceUsedGB" ]; then
             BackupStatus="NEVER"
-            ErrorMsg='Client "$client" has never had a backup'
+            ErrorMsg='Client '$client' has never had a backup'
         else
             # So there is no info about backup but still files on the server. 
             # There is no known backup, but there *are* files on the server, it's "complicated"
@@ -535,13 +622,13 @@ print_line() {
     # Set colors
     case "$BackupStatus" in
         "NEVER" ) TextColor=' style="color: red"'
-                  echo "$client" >> "$BackupNeverFile";;
+                  echo "${client}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
         * ) TextColor="" ;;
     esac
     # Deal with a backup that kind of works but hasn't been run in a while
     if [ $(echo "$BackupStatus" | awk '{print $1}') -gt $BackupBrokenNumDays 2>/dev/null ]; then
         TextColor=' style="color: orange"'
-        echo "${client}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
+        echo "${client}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
     fi
     # Deleted line - saved for precautions:
     # <td align=\"left\" $TextColor><a href=\"${OC_URL/BACKUPNODE/$client}\">$client</a></td>
@@ -576,12 +663,13 @@ create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
     cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/" > "$ReportFile"
-    ToolTipText_PolicyDomain='div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
+    ToolTipText_PolicyDomain='<div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
     ToolTipText_CloptSet='<div class="tooltip"><i>Cloptset:</i><span class="tooltiptext">A '${LQ}'cloptset'${RQ}' (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>'
     ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
     ToolTipText_BackupDelete='<div class="tooltip"><i>Can delete backup:</i><span class="tooltiptext">Says whether or not a client node can delete files from it’s own backup</span></div>'
     ToolTipText_Role='<div class="tooltip"><i>Role:</i><span class="tooltiptext">'${LQ}'ROLE_EFFECTIVE'${RQ}'; Actual role based on the values in the ROLE and ROLE_OVERRIDE fields</span></div>'
     ToolTipText_NumCores='<div class="tooltip"><i>Num cores:</i><span class="tooltiptext">'${LQ}'PROC_TYPE'${RQ}'; Processor type as reported by the client. This value also reflects the number of cores the CPU has</span></div>'
+    ToolTipText_SessionSecurity='<div class="tooltip"><i>Session Security:</i><span class="tooltiptext">Informs on wether the client has established contact with the server ('${LQ}'Strict'${RQ}') or not ('${LQ}'Transitional'${RQ}'). This needs to be reset for a reinstall of a client</span></div>'
     ToolTipText_NumCPU='<div class="tooltip"><i>Num CPU:</i><span class="tooltiptext">'${LQ}'PROC_COUNT'${RQ}'; Processor quantity (=number of logical cores)</span></div>'
     ToolTipText_ValueFromTable='<div class="tooltip"><i>Value from table:</i><span class="tooltiptext">Flag that indicates whether the PVU was calculated based on the IBM PVU table (an XML-file with info on known processors)</span></div>'
     ToolTipText_VU='<div class="tooltip"><i>Value units:</i><span class="tooltiptext">'${LQ}'VALUE_UNITS'${RQ}'; Assigned processor value unit (PVU) for the processor</span></div>'
@@ -614,6 +702,7 @@ create_one_client_report() {
     echo '        <tr><td align="right">'$ToolTipText_CloptSet'</td><td align="left">'${CloptSet:--unknown-}'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right">'$ToolTipText_Schedule'</td><td align="left">'${Schedule:--unknown-}' ('$ScheduleStart' '${ScheduleDuration,,}')</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Transport Method:</i></td><td align="left">'${TransportMethod:-unknown}'</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right">'$ToolTipText_SessionSecurity'</td><td align="left">'${SessionSecurity:-unknown}'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Connected to Server:</i></td><td align="left">'${ServerName:--}' (<a href="'$SP_WikipediaURL'" '$LinkReferer'>Spectrum Protect</a> <a href="'$SP_WhatsNewURL'" '$LinkReferer'>'$ServerVersion'</a>)</td></tr>' >> $ReportFile
     echo '        <tr><td align="right">'$ToolTipText_BackupDelete'</td><td align="left">'${ClientCanDeleteBackup}'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Client version:</i></td><td align="left">'$ClientVersion'</td></tr>' >> $ReportFile
@@ -708,35 +797,54 @@ create_one_client_report() {
 # Also, if applicable, will transport the web page to the web publication server using 'scp'
 errors_today_second_part() {
     # Go through the two possible files with info about broken backup
-    if [ -f "$BackupNeverFile" ]; then
+    if [ -s "$BackupNeverFile" ]; then
         echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
         echo '              <thead>' >> "$ErrorFileHTML"
         echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client without <em>any</em> backup</strong></span></td></tr>' >> "$ErrorFileHTML"
         echo '              </thead>' >> "$ErrorFileHTML"
         echo '              <tbody>' >> "$ErrorFileHTML"
-        while read -r ROW
+        while IFS=: read -r CLIENT DOM DAYS CONTACT EMAIL
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
-            TableCell_2='<td width="87%" colspan="3">'$ROW'</td>'
-            echo '             <tr>'${TableCell_1}${TableCell_2}'</tr>' >> "$ErrorFileHTML"
+            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            # Create the email text
+            # Use 'PUBLICATION_URL'
+            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has never run!%0A%0A"
+            EmailText1="Either you have not yet installed the client or you have not started it.%0A%0A"
+            EmailText2="Instructions to install a backup client on Linux are here: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
+            EmailText3="Instructions to install a backup client on macOS are here: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
+            EmailText4="Unfortunatley, we do not have instructions for Windows. IBM have instructions here: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
+            EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
+            EmailText5="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            EmailEndText="Please contact us if you have any questions about this.%0A%0ARegards,%0A/The CS IT Staff"
+            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailText3}${EmailText4}${EmailText5}${EmailEndText}"
+            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            TableCell_3='<td width="35%">'$ContactEmail'</td>'
+            TableCell_4='<td width="30%">&nbsp;</td>'
+            echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
         done <<< "$(cat $BackupNeverFile)"
         echo '              </tbody>' >> "$ErrorFileHTML"
         echo '          </table>' >> "$ErrorFileHTML"
     fi
-    if [ -f "$BackupBrokenFile" ]; then
+    if [ -s "$BackupBrokenFile" ]; then
         echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
         echo '              <thead>' >> "$ErrorFileHTML"
         echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client that have not had a backup in '$BackupBrokenNumDays' days or more</strong></span></td></tr>' >> "$ErrorFileHTML"
         echo '              </thead>' >> "$ErrorFileHTML"
         echo '              <tbody>' >> "$ErrorFileHTML"
-        while IFS=: read -r CLIENT DAYS CONTACT EMAIL
+        while IFS=: read -r CLIENT DOM DAYS CONTACT EMAIL
+        # Ex: CS-ALEXANDRU:CS_CLIENTS:Alexandru Dura:alexandru.dura@cs.lth.se:31 days ago
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
             TableCell_2='<td width="22%">'$CLIENT'</td>'
-            EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AIt has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
-            EmailLinkText="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
+            # Create the email text
+            # Use 'PUBLICATION_URL'
+            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
+            EmailText1="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
+            EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
+            EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
             EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
-            EmailBodyText="${EmailGreetingText}${EmailLinkText}${EmailEndText}"
+            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">'$DAYS'</td>'
@@ -798,7 +906,7 @@ dsmadmc -id="$ID" -password="$PASSWORD" -TABdelimited "query act begindate=today
 # Ex:
 # 2023-06-30 10:00:04	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
 # 2023-06-30 10:02:37	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
-dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -TABdelimited "select DATE_TIME,MESSAGE FROM ACTLOG WHERE MESSAGE LIKE 'ANR2579E%' OR MESSAGE LIKE 'ANR2507I%'" > "$AllConcludedBackups"              # Time: ≈ 10 s
+dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -TABdelimited "select DATE_TIME,MESSAGE FROM ACTLOG WHERE MESSAGE LIKE 'ANR2579E%' OR MESSAGE LIKE 'ANR2507I%' ORDER BY DATE_TIME" > "$AllConcludedBackups"     # Time: ≈ 10 s
 # Ex:
 # 2023-06-30 10:00:04.000000	ANR2507I Schedule ALL_DAY for domain CS_CLIENTS started at 06/30/23 04:00:00 for node CS-NOELA completed successfully at 06/30/23 10:00:04. (SESSION: 100651)
 # 2023-06-30 10:02:37.000000	ANR2579E Schedule ALL_DAY in domain CS_CLIENTS for node CS-SUSANNA failed (return code 12). (SESSION: 100676)
@@ -896,4 +1004,8 @@ if $SCP; then
     rm "$scp_file"
 fi
 
+# Remove temporary files
 rm "$ActlogToday"
+rm "$BackupNeverFile"
+rm "$BackupBrokenFile"
+rm "$AllConcludedBackups"
