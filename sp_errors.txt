@@ -38,6 +38,9 @@ ANR2753I|DISREGARD|(MAINT_DAILY_CLEANING):ANR0165I Inventory file expiration sta
 ANR3755E|DISREGARD|No directory is specified for downloading client update packages||
 ANR4559I|DISREGARD|Backup DB is in progress||
 ANR4626I|DISREGARD|Database backup will use N streams for processing with the number originally requested N||
+ANR4886I|DISREGARD|Audit Container (Scan) process started
+ANR0986I|DISREGARD|AUDIT CONTAINER (SCAN)...completion state of SUCCESS
+ANR4891I|DISREGARD|AUDIT CONTAINER process ended
 ANR8213E|DISREGARD|Socket XX aborted due to send error; error YY||
 ANR8340I|DISREGARD|FILE volume ZZ||
 ANR8341I|DISREGARD|End-of-volume reached for FILE volume ZZ||
