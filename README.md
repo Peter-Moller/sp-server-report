@@ -114,3 +114,7 @@ Example 4. A error detail page:
 Example 5. A sample email from the error report:
 
 ![example of an error email](example_of_error_email.png)
+
+Example 6. Another email regarding no backup in a number of days:
+
+![example of an error email](example_of_no_backup_email.png)
