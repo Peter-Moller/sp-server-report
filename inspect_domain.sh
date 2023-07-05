@@ -102,7 +102,7 @@ for item in $DOMAIN; do
         #                  CS-TEST'
         #CLIENTStmp+=$'\n'
         NumClientsTmp=$(echo "$CLIENTS" | wc -l)  # Ex: NumClients=5
-        Explanation+="\${LQ}$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')\${RQ} ($NumClientsTmp nodes) & "
+        Explanation+="“$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')” ($NumClientsTmp nodes) & "
         # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
         Explanation+="Non-existing policy domain: $item & "
@@ -235,14 +235,28 @@ errors_today_first_part() {
             for Node in $CLIENTS_with_this_error
             do
                 NumUserErrors="$(grep $ERROR $ActlogToday | grep -c $Node)"                                                                                                                   # Ex: NumUserErrors=24
-                ClientInfoForError="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT CONTACT,EMAIL_ADDRESS,CLIENT_OS_NAME FROM NODES WHERE NODE_NAME='$Node'")"
+                ClientInfoForError="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT CONTACT,EMAIL_ADDRESS,CLIENT_OS_NAME,CLIENT_OS_LEVEL,DOMAIN_NAME FROM NODES WHERE NODE_NAME='$Node'")"
                 # Ex: ClientInfoForError='
-                #  CONTACT: CS driftgrupp
-                #  EMAIL_ADDRESS: drift@cs.lth.se
-                #  CLIENT_OS_NAME: LNX:Ubuntu 20.04.6 LTS'
-                NodeContact="$(echo "$ClientInfoForError" | grep -E "^\s*CONTACT:" | sed 's/^\s*CONTACT: //')"                                                                               # Ex: NodeContact='Jacek Malec'
-                NodeEmail="$(echo "$ClientInfoForError" | grep -E "^\s*EMAIL_ADDRESS:" | sed 's/^\s*EMAIL_ADDRESS: //')"                                                                     # Ex: NodeEmail=jacek.malec@cs.lth.se
+                #         CONTACT: Peter Moller
+                #   EMAIL_ADDRESS: peter.moller@cs.lth.se
+                #  CLIENT_OS_NAME: MAC:Macintosh
+                # CLIENT_OS_LEVEL: 10.16.0
+                #     DOMAIN_NAME: CS_CLIENTS'
+
+                # OS-details for Windows:
+                #  CLIENT_OS_NAME: WIN:Microsoft Windows 10 Education
+                # CLIENT_OS_LEVEL: 10.00
+
+                # OS-details for Linux:
+                #  CLIENT_OS_NAME: LNX:Ubuntu 22.04.2 LTS
+                # CLIENT_OS_LEVEL: 5.19.0-42-generic
+                NodeContact="$(echo "$ClientInfoForError" | grep -E "^\s*CONTACT:" | sed 's/^\s*CONTACT: //')"                                                                                # Ex: NodeContact='Jacek Malec'
+                NodeEmail="$(echo "$ClientInfoForError" | grep -E "^\s*EMAIL_ADDRESS:" | sed 's/^\s*EMAIL_ADDRESS: //')"                                                                      # Ex: NodeEmail=jacek.malec@cs.lth.se
                 NodeOS="$(echo "$ClientInfoForError" | grep -E "^\s*CLIENT_OS_NAME:" | sed 's/^\s*CLIENT_OS_NAME: //' | cut -d: -f2 | sed 's/Microsoft //; s/ release//; s/Macintosh/macOS/')"
+                NodeDomain="$(echo "$ClientInfoForError" | grep -E "^\s*DOMAIN_NAME:" | sed 's/^\s*DOMAIN_NAME: //' | tr [:upper:] [:lower:])"                                                # Ex: NodeDomain=cs_clients
+                if [ "$NodeOS" = "macOS" ]; then
+                    NodeOS="macOS $(echo "$ClientInfoForError" | grep "CLIENT_OS_LEVEL:" | awk '{print $NF}')"                                                                                # Ex: NodeOS='macOS 10.16.0'
+                fi
                 # Ex: ClientOS='macOS' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
                 # Get a link for the error in question:
                 if [ -n "$CS_Error_URL" ]; then
@@ -250,7 +264,9 @@ errors_today_first_part() {
                 else
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                 fi
-                EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}$EmailEndText"                                                     # Ex: EmailBodyText='Hi&excl;%0A%0AYou have a problem with your backup: ANE4007E (&#8220;Error processing '\''#39;X'\'': access to the object is denied&#8221;).Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0APlease contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff'
+                EmailTextNodeLink="${PUBLICATION_URL}/${NodeDomain/_/\/}/${Node,,}.html" 
+                EmailClientText="You computer is called ${LQ}${Node}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+                EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}${EmailClientText}${EmailEndText}"
                 TableCell_1='<td width="13%" align="right">'$(printf "%'d" $NumUserErrors)'&nbsp;'$MulSign'&nbsp;</td>'             
                 TableCell_2='<td width="22%">'$Node'</td>'
                 TableCell_3='<td width="35%"><a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a>'$EmailIcon'</td>'
@@ -628,7 +644,7 @@ print_line() {
     # Deal with a backup that kind of works but hasn't been run in a while
     if [ $(echo "$BackupStatus" | awk '{print $1}') -gt $BackupBrokenNumDays 2>/dev/null ]; then
         TextColor=' style="color: orange"'
-        echo "${client}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
+        echo "${client}:${ClientOS}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
     fi
     # Deleted line - saved for precautions:
     # <td align=\"left\" $TextColor><a href=\"${OC_URL/BACKUPNODE/$client}\">$client</a></td>
@@ -811,11 +827,11 @@ errors_today_second_part() {
             # Use 'PUBLICATION_URL'
             EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has never run!%0A%0A"
             EmailText1="Either you have not yet installed the client or you have not started it.%0A%0A"
-            EmailText2="Instructions to install a backup client on Linux are here: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
-            EmailText3="Instructions to install a backup client on macOS are here: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
-            EmailText4="Unfortunatley, we do not have instructions for Windows. IBM have instructions here: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
+            EmailText2="Client installation instructions%0A&#8226; Linux: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
+            EmailText3="&#8226; macOS: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
+            EmailText4="&#8226; Windows: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
-            EmailText5="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            EmailText5="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
             EmailEndText="Please contact us if you have any questions about this.%0A%0ARegards,%0A/The CS IT Staff"
             EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailText3}${EmailText4}${EmailText5}${EmailEndText}"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
@@ -832,22 +848,22 @@ errors_today_second_part() {
         echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client that have not had a backup in '$BackupBrokenNumDays' days or more</strong></span></td></tr>' >> "$ErrorFileHTML"
         echo '              </thead>' >> "$ErrorFileHTML"
         echo '              <tbody>' >> "$ErrorFileHTML"
-        while IFS=: read -r CLIENT DOM DAYS CONTACT EMAIL
+        while IFS=: read -r CLIENT ClientOS DOM DAYS CONTACT EMAIL
         # Ex: CS-ALEXANDRU:CS_CLIENTS:Alexandru Dura:alexandru.dura@cs.lth.se:31 days ago
         do
-            TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
+            TableCell_1='<td width="13%" align="right">'${DAYS/ ago/}'</td>'
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
+            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ait has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
             EmailText1="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
-            EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            EmailText2="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
             EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
             EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
-            TableCell_4='<td width="30%">'$DAYS'</td>'
+            TableCell_4='<td width="30%">'$ClientOS'</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
         done <<< "$(cat $BackupBrokenFile)"
         echo '              </tbody>' >> "$ErrorFileHTML"
