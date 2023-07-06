@@ -33,6 +33,7 @@ fi
 ActlogToday="$(mktemp)"
 BackupNeverFile="$(mktemp /tmp/BackupNever.XXXXX)"                        # File to store clients that have never had a backup. Used for the error summary
 BackupBrokenFile="$(mktemp /tmp/BackupBroken.XXXXX)"                      # File to store clients that haven't had backup in '$BackupBrokenNumDays' days. Used for the error summary
+BackupNoSchedule="$(mktemp /tmp/BackupNoSchedule.XXXXX)"                  # File to store clients that have no association with a schedule
 AllConcludedBackups="$(mktemp /tmp/AllConcludedBackups.XXXXX)"            # File to store info about all concluded backups
 LinkReferer="target=\"_blank\" rel=\"noopener noreferrer\""
 SP_WikipediaURL="https://en.wikipedia.org/wiki/IBM_Tivoli_Storage_Manager"
@@ -368,13 +369,15 @@ client_info() {
     PolicyDomain="$(echo "$ClientInfo" | grep -E "^\s*DOMAIN_NAME:" | cut -d: -f2 | sed 's/^ *//')"                                                                                           # Ex: PolicyDomain=CS_CLIENTS
     CloptSet="$(echo "$ClientInfo" | grep -E "^\s*OPTION_SET:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: CloptSet=MAC_CLIENT
     Role="$(echo "$PVUDetails" | grep -E "^\s*ROLE_EFFECTIVE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                # Ex: Role=CLIENT
-    CPU_type="$(echo "$PVUDetails" | grep -E "^\s*PROC_TYPE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                 # Ex: CPU_type=8
-    CPU_count="$(echo "$PVUDetails" | grep -E "^\s*PROC_COUNT:" | cut -d: -f2 | sed 's/^ *//')"                                                                                               # Ex: CPU_count=2
-    CPU_Client="$(echo "$PVUDetails" | grep -E "^\s*PROC_VENDOR:|^\s*PROC_BRAND:|^\s*PROC_MODEL:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ')"                                               # Ex: CPU_Client='Intel Xeon E5-2680V4 '
-    CPU_IBM="$(echo "$PVUDetails" | grep -E "^\s*VENDOR_D:|^\s*BRAND_D:|^\s*MODEL_D:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ' | sed 's/(R)/®/g')"                                         # Ex: CPU_IBM='Intel® Xeon® Default Model '
-    ValueFromTable="$(echo "$PVUDetails" | grep -E "^\s*VALUE_FROM_TABLE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                    # Ex: ValueFromTable=YES
-    ValueUnits="$(echo "$PVUDetails" | grep -E "^\s*VALUE_UNITS:" | cut -d: -f2 | sed 's/^ *//')"                                                                                             # Ex: ValueUnits=100
-    Hypervisor="$(echo "$PVUDetails" | grep -E "^\s*HYPERVISOR:" | cut -d: -f2 | sed 's/^ *//')"                                                                                              # Ex: Hypervisor=VMware
+    if [ "$Role" = "SERVER " ]; then
+        CPU_type="$(echo "$PVUDetails" | grep -E "^\s*PROC_TYPE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                             # Ex: CPU_type=8
+        CPU_count="$(echo "$PVUDetails" | grep -E "^\s*PROC_COUNT:" | cut -d: -f2 | sed 's/^ *//')"                                                                                           # Ex: CPU_count=2
+        CPU_Client="$(echo "$PVUDetails" | grep -E "^\s*PROC_VENDOR:|^\s*PROC_BRAND:|^\s*PROC_MODEL:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ')"                                           # Ex: CPU_Client='Intel Xeon E5-2680V4 '
+        CPU_IBM="$(echo "$PVUDetails" | grep -E "^\s*VENDOR_D:|^\s*BRAND_D:|^\s*MODEL_D:" | cut -d: -f2 | sed 's/^ *//' | tr '\n' ' ' | sed 's/(R)/®/g')"                                     # Ex: CPU_IBM='Intel® Xeon® Default Model '
+        ValueFromTable="$(echo "$PVUDetails" | grep -E "^\s*VALUE_FROM_TABLE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                # Ex: ValueFromTable=YES
+        ValueUnits="$(echo "$PVUDetails" | grep -E "^\s*VALUE_UNITS:" | cut -d: -f2 | sed 's/^ *//')"                                                                                         # Ex: ValueUnits=100
+        Hypervisor="$(echo "$PVUDetails" | grep -E "^\s*HYPERVISOR:" | cut -d: -f2 | sed 's/^ *//')"                                                                                          # Ex: Hypervisor=VMware
+    fi
     PVU="$(echo "$PVUDetails" | grep -E "^\s*PVU:" | cut -d: -f2 | sed 's/^ *//')"                                                                                                            # Ex: PVU=0
     ScheduleDetailsToLookFor="SCHEDULE_NAME,STARTTIME,DURATION,DURUNITS"
     # Get all schedules known to the domain:
@@ -396,9 +399,25 @@ client_info() {
     #       DURATION: 4
     #       DURUNITS: HOURS'
 
+    # Get the clients OS:
+    ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_NAME:" | cut -d: -f3 | sed 's/Microsoft //' | sed 's/ release//' | cut -d\( -f1)"
+    # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
+    # Get some more info about macOS:
+    if [ "$ClientOS" = "Macintosh" ]; then
+        OSver="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_LEVEL:" | cut -d: -f2)"                                                                                                         # Ex: OSver=' 10.16.0'
+        ClientOS="macOS$OSver"
+    fi
+
+    # Get the schedule:
     Schedule="$(dsmadmc -id=$ID -password=$PASSWORD -DISPLaymode=LISt "query schedule $PolicyDomain node=$client" 2>/dev/null | grep -Ei "^\s*Schedule Name:" | cut -d: -f2 | sed 's/^ //')"  # Ex: Schedule=ALL_DAY
-    ScheduleStart="$(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*STARTTIME:" | cut -d: -f2- | sed 's/^ //')"                                                                  # Ex: ScheduleStart=04:00:00
-    ScheduleDuration="+ $(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*DURATION:|^\s*DURUNITS:" | cut -d: -f2- | tr -d '\n' | sed 's/^ //')"                                   # Ex: ScheduleDuration='+ 18 HOURS'
+    if [ -n "$Schedule" ]; then
+        ScheduleStart="$(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*STARTTIME:" | cut -d: -f2- | sed 's/^ //')"                                                                  # Ex: ScheduleStart=04:00:00
+        ScheduleDuration="+ $(echo "$ScheduleInfo" | grep -A3 "$Schedule" | grep -Ei "^\s*DURATION:|^\s*DURUNITS:" | cut -d: -f2- | tr -d '\n' | sed 's/^ //')"                                   # Ex: ScheduleDuration='+ 18 HOURS'
+    else
+        ScheduleStart=""
+        ScheduleDuration=""
+    fi
+
     SessionSecurity="$(echo "$ClientInfo" | grep -E "^\s*SESSION_SECURITY:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: SessionSecurity=Strict
     TransportMethod="$(echo "$ClientInfo" | grep -E "^\s*TRANSPORT_METHOD:" | cut -d: -f2 | sed 's/^ *//; s/TLS13/TLS 1.3/')"                                                                 # Ex: TransportMethod='TLS 1.3'
     ClientCanDeleteBackup="$(echo "$ClientInfo" | grep -E "^\s*BACKDELETE:" | cut -d: -f2 | sed 's/^ *//')"                                                                                   # Ex: ClientCanDeleteBackup=YES
@@ -417,13 +436,6 @@ client_info() {
         "130.235.17" ) ClientLastNetwork="CS server net" ;;
         "10.0.16"    ) ClientLastNetwork="CS client net" ;;
     esac
-    ClientOS="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_NAME:" | cut -d: -f3 | sed 's/Microsoft //' | sed 's/ release//' | cut -d\( -f1)"
-    # Ex: ClientOS='Macintosh' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
-    # Get some more info about macOS:
-    if [ "$ClientOS" = "Macintosh" ]; then
-        OSver="$(echo "$ClientInfo" | grep -Ei "^\s*CLIENT_OS_LEVEL:" | cut -d: -f2)"                                                                                                         # Ex: OSver=' 10.16.0'
-        ClientOS="macOS$OSver"
-    fi
     ClientLastAccess="$(echo "$ClientInfo" | grep -Ei "^\s*LASTACC_TIME:" | awk '{print $2" "$3}' | cut -d\. -f1)"                                                                            # Ex: ClientLastAccess='2023-06-30 06:34:35'
     #ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query occup $client")"
     ClientOccupancy="$(LANG=en_US dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT FILESPACE_ID,FILESPACE_NAME,NUM_FILES,PHYSICAL_MB,LOGICAL_MB,REPORTING_MB FROM OCCUPANCY WHERE NODE_NAME='$client'")"
@@ -528,7 +540,7 @@ backup_result() {
             # We know what day to dig for in the actlog: get it!
             ActLogLastDay=""
             # Get the finish code:
-            FinishCode="$(grep "$(echo "$BackupStart" | awk '{print $1}') .* $client" $)"
+            FinishCode="$(grep "$(echo "$BackupStart" | awk '{print $1}') .* $client" "$ActlogToday")"
         fi
 
 
@@ -637,10 +649,14 @@ print_line() {
     fi
     # Set colors
     case "$BackupStatus" in
-        "NEVER" ) TextColor=' style="color: red"'
-                  echo "${client}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
+        "NEVER" )   TextColor=' style="color: red"'
+                    echo "${client}:${ClientOS}:${PolicyDomain,,}:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
         * ) TextColor="" ;;
     esac
+    if [ -z "$Schedule" ]; then
+        TextColor=' style="color: red"'
+        echo "${client}:${ClientOS}:$ContactName:$ContactEmail" >> "$BackupNoSchedule"
+    fi
     # Deal with a backup that kind of works but hasn't been run in a while
     if [ $(echo "$BackupStatus" | awk '{print $1}') -gt $BackupBrokenNumDays 2>/dev/null ]; then
         TextColor=' style="color: orange"'
@@ -812,7 +828,10 @@ create_one_client_report() {
 # - list of clients who have had backup, but not recently (from '$BackupBrokenFile')
 # Also, if applicable, will transport the web page to the web publication server using 'scp'
 errors_today_second_part() {
-    # Go through the two possible files with info about broken backup
+
+    # Go through the three possible files with info about broken backup
+
+    # First: backup has never happened at all:
     if [ -s "$BackupNeverFile" ]; then
         echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
         echo '              <thead>' >> "$ErrorFileHTML"
@@ -842,6 +861,8 @@ errors_today_second_part() {
         echo '              </tbody>' >> "$ErrorFileHTML"
         echo '          </table>' >> "$ErrorFileHTML"
     fi
+
+    # Second: backup has not happened for > $BackupBrokenNumDays
     if [ -s "$BackupBrokenFile" ]; then
         echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
         echo '              <thead>' >> "$ErrorFileHTML"
@@ -866,6 +887,37 @@ errors_today_second_part() {
             TableCell_4='<td width="30%">'$ClientOS'</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
         done <<< "$(cat $BackupBrokenFile)"
+        echo '              </tbody>' >> "$ErrorFileHTML"
+        echo '          </table>' >> "$ErrorFileHTML"
+    fi
+
+    # Third: clients without any association with a schedule:
+    # "${client}:${ClientOS}:$ContactName:$ContactEmail"
+    # Ex: CS-DRIFTPC:Windows 10 Education:CS Driftgrupp:drift@cs.lth.se
+    if [ -s "$BackupNoSchedule" ]; then
+        echo '            <table id="errors" style="margin-top: 1rem">' >> "$ErrorFileHTML"
+        echo '              <thead>' >> "$ErrorFileHTML"
+        echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Clients that are not associated with any schedule</strong></span></td></tr>' >> "$ErrorFileHTML"
+        echo '              </thead>' >> "$ErrorFileHTML"
+        echo '              <tbody>' >> "$ErrorFileHTML"
+        while IFS=: read -r CLIENT ClientOS CONTACT EMAIL
+        # Ex: CS-ALEXANDRU:Ubuntu 20.04.4 LTS:Alexandru Dura:alexandru.dura@cs.lth.se
+        do
+            TableCell_1='<td width="13%" align="right">&nbsp;</td>'
+            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            # Create the email text
+            # Use 'PUBLICATION_URL'
+            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ayour backup node (${LQ}${CLIENT}${RQ}) has no association with any ${LQ}schedule${RQ}.%0A%0A"
+            EmailText1="As a consequence, no backup will be performed. You must ask your backup administrator to associate your backup node with a schedule to enable backup.%0A%0A"
+            EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
+            EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
+            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
+            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20schedule%20associated&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            TableCell_3='<td width="35%">'$ContactEmail'</td>'
+            TableCell_4='<td width="30%">'$ClientOS'</td>'
+            echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
+        done <<< "$(cat $BackupNoSchedule)"
         echo '              </tbody>' >> "$ErrorFileHTML"
         echo '          </table>' >> "$ErrorFileHTML"
     fi
@@ -1025,3 +1077,4 @@ rm "$ActlogToday"
 rm "$BackupNeverFile"
 rm "$BackupBrokenFile"
 rm "$AllConcludedBackups"
+#rm "$BackupNoSchedule"
