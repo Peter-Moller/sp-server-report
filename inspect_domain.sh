@@ -647,23 +647,25 @@ print_line() {
     if [ -n "$CriticalErrorMsg" ]; then
         ErrorMsg="$CriticalErrorMsg"
     fi
+
     # Set colors
     case "$BackupStatus" in
         "NEVER" )   TextColor=' style="color: red"'
                     echo "${client}:${ClientOS}:${PolicyDomain,,}:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
         * ) TextColor="" ;;
     esac
-    if [ -z "$Schedule" ]; then
-        TextColor=' style="color: red"'
-        echo "${client}:${ClientOS}:$ContactName:$ContactEmail" >> "$BackupNoSchedule"
-    fi
+
     # Deal with a backup that kind of works but hasn't been run in a while
     if [ $(echo "$BackupStatus" | awk '{print $1}') -gt $BackupBrokenNumDays 2>/dev/null ]; then
         TextColor=' style="color: orange"'
         echo "${client}:${ClientOS}:${PolicyDomain,,}:$BackupStatus:$ContactName:$ContactEmail" >> "$BackupBrokenFile"
     fi
-    # Deleted line - saved for precautions:
-    # <td align=\"left\" $TextColor><a href=\"${OC_URL/BACKUPNODE/$client}\">$client</a></td>
+
+    if [ -z "$Schedule" ]; then
+        TextColor=' style="color: red"'
+        echo "${client}:${ClientOS}:${PolicyDomain,,}:$ContactName:$ContactEmail" >> "$BackupNoSchedule"
+    fi
+
     echo '        <tr class="clients">
           <td align="left"  '$TextColor'><a href="'${client,,}'.html">'$client'</a></td>
           <td align="right" '$TextColor'>'$(printf "%'d" $BackedupNumfiles)'</td>
@@ -900,8 +902,8 @@ errors_today_second_part() {
         echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Clients that are not associated with any schedule</strong></span></td></tr>' >> "$ErrorFileHTML"
         echo '              </thead>' >> "$ErrorFileHTML"
         echo '              <tbody>' >> "$ErrorFileHTML"
-        while IFS=: read -r CLIENT ClientOS CONTACT EMAIL
-        # Ex: CS-ALEXANDRU:Ubuntu 20.04.4 LTS:Alexandru Dura:alexandru.dura@cs.lth.se
+        while IFS=: read -r CLIENT ClientOS DOM CONTACT EMAIL
+        # Ex: CS-ALEXANDRU:Ubuntu 20.04.4 LTS:cs_clients:Alexandru Dura:alexandru.dura@cs.lth.se
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'
             TableCell_2='<td width="22%">'$CLIENT'</td>'
