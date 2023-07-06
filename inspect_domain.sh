@@ -173,7 +173,7 @@ errors_today_first_part() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
-    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATETIME/$REPORT_DATETIME/g" > "$ErrorFileHTML"
+    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATE/$REPORT_DATE/g" > "$ErrorFileHTML"
 
     # Check to see if any clients in the DOMAIN have had errors today
     # If not, we need to say that “All is well”
@@ -696,7 +696,7 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/" > "$ReportFile"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/; s/REPORT_DATE/$REPORT_DATE/" > "$ReportFile"
     ToolTipText_PolicyDomain='<div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
     ToolTipText_CloptSet='<div class="tooltip"><i>Cloptset:</i><span class="tooltiptext">A '${LQ}'cloptset'${RQ}' (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>'
     ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
@@ -997,7 +997,7 @@ echo  >> $ReportFileHTML
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
 SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Spectrum Protect</a> version <a href="'$SP_WhatsNewURL' '$LinkReferer'">'$ServerVersion'</a>'
 REPORT_HEAD="Backup report for ${Explanation% & } on server “${ServerName}” ($SERVER_STRING) "
-cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATETIME;$REPORT_DATETIME;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATE;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 
 # Loop through the list of clients
@@ -1079,4 +1079,4 @@ rm "$ActlogToday"
 rm "$BackupNeverFile"
 rm "$BackupBrokenFile"
 rm "$AllConcludedBackups"
-#rm "$BackupNoSchedule"
+rm "$BackupNoSchedule"
