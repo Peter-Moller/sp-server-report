@@ -276,7 +276,7 @@ errors_today_first_part() {
                 EmailBodyText="$(cat "$Email_Error" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/; s/LOCATION/$LOCATION/; s_ErrorLink_${ErrorLink}_; s;EmailTextNodeLink;${EmailTextNodeLink};; s/Node/$Node/")"
 
                 TableCell_1='<td width="13%" align="right">'$(printf "%'d" $NumUserErrors)'&nbsp;'$MulSign'&nbsp;</td>'             
-                TableCell_2='<td width="22%">'$Node'</td>'
+                TableCell_2='<td width="22%"><a href="'${Node,,}'.html">'$Node'</a></td>'
                 TableCell_3='<td width="35%"><a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a>'$EmailIcon'</td>'
                 TableCell_4='<td width="30%">'$NodeOS'</td>'
                 LocalLine="				<tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>"
@@ -850,7 +850,7 @@ errors_today_second_part() {
         while IFS=: read -r CLIENT DOM CONTACT EMAIL
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
-            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            TableCell_2='<td width="22%"><a href="'${CLIENT,,}'.html">'$CLIENT'</a></td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
@@ -875,7 +875,7 @@ errors_today_second_part() {
         # Ex: CS-ALEXANDRU:CS_CLIENTS:Alexandru Dura:alexandru.dura@cs.lth.se:31 days ago
         do
             TableCell_1='<td width="13%" align="right">'${DAYS/ ago/}'</td>'
-            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            TableCell_2='<td width="22%"><a href="'${CLIENT,,}'.html">'$CLIENT'</a></td>'
             # Create the email text
             # Use 'PUBLICATION_URL'            
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
@@ -902,7 +902,7 @@ errors_today_second_part() {
         # Ex: CS-ALEXANDRU:Ubuntu 20.04.4 LTS:cs_clients:Alexandru Dura:alexandru.dura@cs.lth.se
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'
-            TableCell_2='<td width="22%">'$CLIENT'</td>'
+            TableCell_2='<td width="22%"><a href="'${CLIENT,,}'.html">'$CLIENT'</a></td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
