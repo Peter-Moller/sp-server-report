@@ -853,15 +853,6 @@ errors_today_second_part() {
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has never run!%0A%0A"
-            #EmailText1="Either you have not yet installed the client or you have not started it.%0A%0A"
-            #EmailText2="Client installation instructions%0A&#8226; Linux: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
-            #EmailText3="&#8226; macOS: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
-            #EmailText4="&#8226; Windows: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
-            #EmailText5="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            #EmailEndText="Please contact us if you have any questions about this.%0A%0ARegards,%0A/The CS IT Staff"
-            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailText3}${EmailText4}${EmailText5}${EmailEndText}"
-
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_NoBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/")"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20at%20all&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
@@ -886,13 +877,7 @@ errors_today_second_part() {
             TableCell_1='<td width="13%" align="right">'${DAYS/ ago/}'</td>'
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
-            # Use 'PUBLICATION_URL'
-            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ait has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
-            #EmailText1="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
-            #EmailText2="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            #EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
-            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
-            
+            # Use 'PUBLICATION_URL'            
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_BrokenBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/DAYS/$DAYS/; s/CLIENT/$CLIENT/")"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
@@ -920,12 +905,6 @@ errors_today_second_part() {
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ayour backup node (${LQ}${CLIENT}${RQ}) has no association with any ${LQ}schedule${RQ}.%0A%0A"
-            #EmailText1="As a consequence, no backup will be performed. You must ask your backup administrator to associate your backup node with a schedule to enable backup.%0A%0A"
-            #EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            #EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
-            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
-
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_NoSchedule" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/")"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20schedule%20associated&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
@@ -1089,7 +1068,7 @@ fi
 
 # Remove temporary files
 rm "$ActlogToday"
-#rm "$BackupNeverFile"
-#rm "$BackupBrokenFile"
+rm "$BackupNeverFile"
+rm "$BackupBrokenFile"
 rm "$AllConcludedBackups"
-#rm "$BackupNoSchedule"
+rm "$BackupNoSchedule"
