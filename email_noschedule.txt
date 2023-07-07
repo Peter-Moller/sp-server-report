@@ -1,0 +1,14 @@
+Hi!%0A
+%0A
+There is a problem with your backup:%0A
+your backup node (“CLIENT”) has no association with any “schedule”.%0A
+%0A
+As a consequence, no backup will be performed. You must ask your backup administrator to associate your backup node with a schedule to enable backup.%0A
+%0A
+You find details about your backup here:%0A
+$EmailTextNodeLink.%0A
+%0A
+Please contact us if you have any questions about this error.%0A
+%0A
+Regards,%0A
+/The CS IT Staff

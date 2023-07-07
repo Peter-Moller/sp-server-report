@@ -1,0 +1,19 @@
+Hi!%0A
+%0A
+There is a problem with your backup:%0A
+It has never run!%0A
+%0A
+Either you have not yet installed the client or you have not started it.%0A
+%0A
+Client installation instructions%0A
+&#8226; Linux: https://fileadmin.cs.lth.se/SP_install_linux.html %0A
+&#8226; macOS: https://fileadmin.cs.lth.se/SP_install_mac.html %0A
+&#8226; Windows: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A
+%0A
+You computer is called “CLIENT” in the backup environment and you find details about your backup here:%0A
+EmailTextNodeLink%0A
+%0A
+Please contact us if you have any questions about this.%0A
+%0A
+Regards,%0A
+/The CS IT Staff

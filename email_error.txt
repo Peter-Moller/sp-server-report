@@ -1,0 +1,17 @@
+Hi!%0A
+%0A
+You have a problem with your backup:%0A
+ERROR (“REASON”).%0A
+(In the local log file, you may see this problem as “ANS...” but it is the same problem.)%0A
+%0A
+Here is a LOCATION web page that descripes the error in more detail:%0A
+ErrorLink%0A
+%0A
+You computer is called “Node” in the backup environment and you find details about your backup here:%0A
+EmailTextNodeLink.%0A
+%0A
+%0A
+Please contact us if you have any questions about this error.%0A
+%0A
+mvh,%0A
+/CS IT Staff

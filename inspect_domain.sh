@@ -86,6 +86,10 @@ HTML_Template_End="$ScriptDirName"/report_end.html
 HTML_Template_one_client_Head="$ScriptDirName"/report_one_head.html
 HTML_Template_one_client_End="$ScriptDirName"/report_one_end.html
 HTML_Error_Head="$ScriptDirName"/errors_head.html
+Email_Error="$ScriptDirName"/email_error.txt
+Email_NoBackup="$ScriptDirName"/email_nobackup.txt
+Email_BrokenBackup="$ScriptDirName"/email_brokenbackup.txt
+Email_NoSchedule="$ScriptDirName"/email_noschedule.txt
 SP_ErrorFile="$ScriptDirName"/sp_errors.txt                               # Super-important file containing all errors we want to be aware of. Needs to be updated as new errors are found
 
 
@@ -106,7 +110,7 @@ for item in $DOMAIN; do
         Explanation+="“$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list  "query domain $item" | grep -E "^\s*Description:" | cut -d: -f2 | sed 's/^\ *//')” ($NumClientsTmp nodes) & "
         # Ex: Explanation+='CS_CLIENTS (CS client domain) & '
     else
-        Explanation+="Non-existing policy domain: $item & "
+        Explanation+='Non-existing policy domain: '$item' & '
     fi
 done
 
@@ -114,7 +118,7 @@ done
 
 # Exit if the list is empty
 if [ -z "$CLIENTS" ]; then
-    echo "No clients in the given domains (\"$DOMAIN\")! Exiting"
+    echo 'No clients in the given domains ('$DOMAIN')! Exiting'
     exit 1
 fi
 
@@ -173,7 +177,7 @@ errors_today_first_part() {
     # Use informaiton from a text file, delimited by '|', with one error per row in this order:
     # Error | (DISREGARD) | Explanation | Email_text
 
-    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATE/$REPORT_DATE/g" > "$ErrorFileHTML"
+    cat "$HTML_Error_Head" | sed "s/DOMAIN/$DOMAIN/g; s/REPORT_DATETIME/$REPORT_DATETIME/; s/REPORT_TODAY/$REPORT_TODAY/g" > "$ErrorFileHTML"
 
     # Check to see if any clients in the DOMAIN have had errors today
     # If not, we need to say that “All is well”
@@ -187,12 +191,6 @@ errors_today_first_part() {
 
     # Go thropugh the list of errors [if there are any]
     if [ -n "$ErrorsInTheDailyLog" ]; then
-        # Set standard values for email link:
-        EmailGreetingText="Hi&excl;%0A%0AYou have a problem with your backup:%0AERROR (${LQ}REASON${RQ}).%0A(In the local log file, you may see this problem as ${LQ}ANS...${RQ} but it is the same problem.)%0A"
-        EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
-        EmailLinkTextIBM="Here is a web page at IBM that describes the error in more detail:%0A"
-        EmailNoLinkText="We do not have a deeper description of this error."
-        EmailEndText="Please contact us if you have any questions about this error.%0A%0Amvh,%0A/CS IT Staff"
 
         # Traverse this list and state what error it is and the clients affected
         # Make one table per error
@@ -259,15 +257,24 @@ errors_today_first_part() {
                     NodeOS="macOS $(echo "$ClientInfoForError" | grep "CLIENT_OS_LEVEL:" | awk '{print $NF}')"                                                                                # Ex: NodeOS='macOS 10.16.0'
                 fi
                 # Ex: ClientOS='macOS' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
+
+                # Creating the email
+                EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
+                EmailLinkTextIBM="Here is a web page at IBM that describes the error in more detail:%0A"
+                EmailNoLinkText="We do not have a deeper description of this error."  #### NOT USED!!
                 # Get a link for the error in question:
                 if [ -n "$CS_Error_URL" ]; then
                     LinkDetailsText="%0A${EmailLinkText}${CS_Error_URL}%0A%0A"                                                                                                                # Ex: LinkDetailsText='Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0A'
+                    LOCATION="local"
+                    ErrorLink="$CS_Error_URL"
                 else
                     LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
+                    LOCATION="IBM"
+                    ErrorLink="$IBM_Error_URL"
                 fi
                 EmailTextNodeLink="${PUBLICATION_URL}/${NodeDomain/_/\/}/${Node,,}.html" 
-                EmailClientText="You computer is called ${LQ}${Node}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-                EmailBodyText="$(echo "$EmailGreetingText" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/")${LinkDetailsText}${EmailClientText}${EmailEndText}"
+                EmailBodyText="$(cat "$Email_Error" | sed "s/ERROR/$ERROR/; s/REASON/$ErrorText/; s/LOCATION/$LOCATION/; s_ErrorLink_${ErrorLink}_; s;EmailTextNodeLink;${EmailTextNodeLink};; s/Node/$Node/")"
+
                 TableCell_1='<td width="13%" align="right">'$(printf "%'d" $NumUserErrors)'&nbsp;'$MulSign'&nbsp;</td>'             
                 TableCell_2='<td width="22%">'$Node'</td>'
                 TableCell_3='<td width="35%"><a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a>'$EmailIcon'</td>'
@@ -651,7 +658,7 @@ print_line() {
     # Set colors
     case "$BackupStatus" in
         "NEVER" )   TextColor=' style="color: red"'
-                    echo "${client}:${ClientOS}:${PolicyDomain,,}:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
+                    echo "${client}:${PolicyDomain,,}:$ContactName:$ContactEmail" >> "$BackupNeverFile";;
         * ) TextColor="" ;;
     esac
 
@@ -696,7 +703,7 @@ get_latest_client_versions() {
 create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
-    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/; s/REPORT_DATE/$REPORT_DATE/" > "$ReportFile"
+    cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/; s/REPORT_TODAY/$REPORT_TODAY/" > "$ReportFile"
     ToolTipText_PolicyDomain='<div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
     ToolTipText_CloptSet='<div class="tooltip"><i>Cloptset:</i><span class="tooltiptext">A '${LQ}'cloptset'${RQ}' (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>'
     ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
@@ -840,22 +847,24 @@ errors_today_second_part() {
         echo '                <tr><td colspan="4" bgcolor="#bad8e1"><span class="head_fat"><strong>Client without <em>any</em> backup</strong></span></td></tr>' >> "$ErrorFileHTML"
         echo '              </thead>' >> "$ErrorFileHTML"
         echo '              <tbody>' >> "$ErrorFileHTML"
-        while IFS=: read -r CLIENT DOM DAYS CONTACT EMAIL
+        while IFS=: read -r CLIENT DOM CONTACT EMAIL
         do
             TableCell_1='<td width="13%" align="right">&nbsp;</td>'             
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has never run!%0A%0A"
-            EmailText1="Either you have not yet installed the client or you have not started it.%0A%0A"
-            EmailText2="Client installation instructions%0A&#8226; Linux: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
-            EmailText3="&#8226; macOS: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
-            EmailText4="&#8226; Windows: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
+            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0AIt has never run!%0A%0A"
+            #EmailText1="Either you have not yet installed the client or you have not started it.%0A%0A"
+            #EmailText2="Client installation instructions%0A&#8226; Linux: https://fileadmin.cs.lth.se/SP_install_linux.html %0A"
+            #EmailText3="&#8226; macOS: https://fileadmin.cs.lth.se/SP_install_mac.html %0A"
+            #EmailText4="&#8226; Windows: https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=SSEQVQ_8.1.16/client/t_inst_winclient.htm %0A%0A"
+            #EmailText5="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            #EmailEndText="Please contact us if you have any questions about this.%0A%0ARegards,%0A/The CS IT Staff"
+            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailText3}${EmailText4}${EmailText5}${EmailEndText}"
+
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
-            EmailText5="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            EmailEndText="Please contact us if you have any questions about this.%0A%0ARegards,%0A/The CS IT Staff"
-            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailText3}${EmailText4}${EmailText5}${EmailEndText}"
-            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            EmailBodyText="$(cat "$Email_NoBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/")"
+            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20at%20all&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">&nbsp;</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
@@ -878,12 +887,14 @@ errors_today_second_part() {
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ait has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
-            EmailText1="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
+            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ait has not run in $(echo "$DAYS" | awk '{print $1}') days.%0A%0A"
+            #EmailText1="The most common problem is that the ${LQ}scheduler${RQ} is not running. Here is a description for how to check the backup (and the scheduler):%0Ahttps://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A%0A"
+            #EmailText2="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            #EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
+            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
+            
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
-            EmailText2="You computer is called ${LQ}${CLIENT}${RQ} in the backup environment and you find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
-            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
+            EmailBodyText="$(cat "$Email_BrokenBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/DAYS/$DAYS/; s/CLIENT/$CLIENT/")"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">'$ClientOS'</td>'
@@ -909,12 +920,14 @@ errors_today_second_part() {
             TableCell_2='<td width="22%">'$CLIENT'</td>'
             # Create the email text
             # Use 'PUBLICATION_URL'
-            EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ayour backup node (${LQ}${CLIENT}${RQ}) has no association with any ${LQ}schedule${RQ}.%0A%0A"
-            EmailText1="As a consequence, no backup will be performed. You must ask your backup administrator to associate your backup node with a schedule to enable backup.%0A%0A"
+            #EmailGreetingText="Hi&excl;%0A%0AThere is a problem with your backup:%0Ayour backup node (${LQ}${CLIENT}${RQ}) has no association with any ${LQ}schedule${RQ}.%0A%0A"
+            #EmailText1="As a consequence, no backup will be performed. You must ask your backup administrator to associate your backup node with a schedule to enable backup.%0A%0A"
+            #EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
+            #EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
+            #EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
+
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
-            EmailText2="You find details about your backup here:%0A${EmailTextNodeLink}.%0A%0A"
-            EmailEndText="Please contact us if you have any questions about this error.%0A%0ARegards,%0A/The CS IT Staff"
-            EmailBodyText="${EmailGreetingText}${EmailText1}${EmailText2}${EmailEndText}"
+            EmailBodyText="$(cat "$Email_NoSchedule" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/")"
             ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20schedule%20associated&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">'$ClientOS'</td>'
@@ -963,7 +976,7 @@ errors_today_second_part() {
 # Get basic server info
 server_info
 
-REPORT_DATE="$(date +%F)"
+REPORT_TODAY="$(date +%F)"
 REPORT_DATETIME="$(date +%F" "%R" "%Z)"                                                                                                                                                       # Ex: REPORT_DATETIME='2023-06-27 22:28 CEST'
 
 # Get the activity log for today (saves time to do it only once)
@@ -997,7 +1010,7 @@ echo  >> $ReportFileHTML
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
 SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Spectrum Protect</a> version <a href="'$SP_WhatsNewURL' '$LinkReferer'">'$ServerVersion'</a>'
 REPORT_HEAD="Backup report for ${Explanation% & } on server “${ServerName}” ($SERVER_STRING) "
-cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s;REPORT_DATE;$REPORT_DATE;; s;REPORT_HEAD;$REPORT_HEAD;; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
+cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s/REPORT_TODAY/$REPORT_TODAY/; s/REPORT_DATETIME/$REPORT_DATETIME/; s|REPORT_HEAD|$REPORT_HEAD|; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
 
 # Loop through the list of clients
@@ -1076,7 +1089,7 @@ fi
 
 # Remove temporary files
 rm "$ActlogToday"
-rm "$BackupNeverFile"
-rm "$BackupBrokenFile"
+#rm "$BackupNeverFile"
+#rm "$BackupBrokenFile"
 rm "$AllConcludedBackups"
-rm "$BackupNoSchedule"
+#rm "$BackupNoSchedule"

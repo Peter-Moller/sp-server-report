@@ -1,0 +1,15 @@
+Hi&excl;%0A
+%0A
+There is a problem with your backup:%0A
+it last run DAYS.%0A
+%0A
+The most common problem is that the “scheduler” is not running. Here is a description for how to check the backup (and the scheduler):%0A
+https://fileadmin.cs.lth.se/intern/backup/checking_the_backup.html %0A
+%0A
+You computer is called “CLIENT” in the backup environment and you find details about your backup here:%0A
+EmailTextNodeLink.%0A
+%0A
+Please contact us if you have any questions about this error.%0A
+%0A
+Regards,%0A
+/The CS IT Staff
