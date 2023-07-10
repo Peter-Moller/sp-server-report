@@ -70,16 +70,19 @@ The script *requires* a file, `~/.tsm_secrets.env` or `"$ScriptDirName"/tsm_secr
 | `export PUBLICATION_URL="https://com.url.edu/path"`  | URL for the finished report (included in the email) |
 | `export STORAGE_POOL="STORAGE_POOL_1"`               | Given this, size and usage of the Storage Pool will be presented |
 | `export FOOTER="<p align=\"right\"><i>Footer-text</i></p>"` | Some text to present in the very bottom of the page, identifying the information provider |
+| `export EMAILFOOTER="Regards,%0A/The CS IT Staff"`   | The footer to display in the emails sent from the error report |
 
 
 ### Error reporting
 
 The file `sp_errors.txt` is required for the error report. It consists of a number of rows with the following content:  
-`Message Code|DISREGARD` or `VALID|Explanation|URL-to-IBM|URL-to-custom-error-page`  
-Lines marked with:  
-`REPORT` will be reported in the domain report  
-`VALID` will be reported only in the error-report  
-`DISREGARD` will be disregarded for presentation but are used to shorten the daily actlog-excerpt that is used when sifting through the 
+`Message Code|QUALIFIER|Explanation|URL-to-IBM-page|URL-to-custom-error-page`  
+
+`QUALIFIER` is:
+
+  * `REPORT` will be reported in the domain report  
+  * `VALID` will be reported only in the error-report  
+  * `DISREGARD` will be disregarded for presentation but are used to shorten the daily actlog-excerpt that is used when sifting through the 
 daily activity to find the data we are looking for. These error codes are quite common and do not add any useful information and thus 
 removing them serves the purpose of making the processing faster.
 

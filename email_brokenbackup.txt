@@ -11,5 +11,4 @@ EmailTextNodeLink.%0A
 %0A
 Please contact us if you have any questions about this error.%0A
 %0A
-Regards,%0A
-/The CS IT Staff
+EMAILFOOTER
