@@ -21,6 +21,7 @@ Now="$(date +%H:%M)"                                                      # Ex: 
 BackupBrokenNumDays="30"                                                  # Number of days before a backup is considered “broken”
 MulSign="&#215;"                                                          # ×
 EmailIcon="&nbsp;&#x1F4E7;"                                               # Ex: 📧
+IconEmail="&#x1F4E7;&nbsp;"                                               # Ex:📧 
 LQ="&#8220;"                                                              # Left quote: “
 RQ="&#8221;"                                                              # Right quote: ”
 OutDirPrefix="/var/tmp/tsm"
@@ -277,7 +278,7 @@ errors_today_first_part() {
 
                 TableCell_1='<td width="13%" align="right">'$(printf "%'d" $NumUserErrors)'&nbsp;'$MulSign'&nbsp;</td>'             
                 TableCell_2='<td width="22%"><a href="'${Node,,}'.html">'$Node'</a></td>'
-                TableCell_3='<td width="35%"><a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a>'$EmailIcon'</td>'
+                TableCell_3='<td width="35%">'$IconEmail'<a href="mailto:'$NodeEmail'?&subject=Backup%20error%20'$ERROR'&body='${EmailBodyText/ /%20/}'">'$NodeContact'</a></td>'
                 TableCell_4='<td width="30%">'$NodeOS'</td>'
                 LocalLine="				<tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>"
                 echo "$LocalLine" >> "$ErrorFileHTML"
@@ -855,7 +856,7 @@ errors_today_second_part() {
             # Use 'PUBLICATION_URL'
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_NoBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/; s/EMAILFOOTER/$EMAILFOOTER/")"
-            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20at%20all&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            ContactEmail=$IconEmail'<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20at%20all&body='${EmailBodyText// /%20}'">'$CONTACT'</a> '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">&nbsp;</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
@@ -880,7 +881,7 @@ errors_today_second_part() {
             # Use 'PUBLICATION_URL'            
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_BrokenBackup" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/DAYS/$DAYS/; s/CLIENT/$CLIENT/; s/EMAILFOOTER/$EMAILFOOTER/")"
-            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            ContactEmail=$IconEmail'<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20backup%20in%20'$(echo "$DAYS" | awk '{print $1}')'%20days&body='${EmailBodyText// /%20}'">'$CONTACT'</a> '
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">'$ClientOS'</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
@@ -907,7 +908,7 @@ errors_today_second_part() {
             # Use 'PUBLICATION_URL'
             EmailTextNodeLink="${PUBLICATION_URL}/${DOM/_/\/}/${CLIENT,,}.html"                                                                                                               # Ex: EmailTextNodeLink=https://fileadmin.cs.lth.se/intern/backup/cs/clients/cs-alexandru.html
             EmailBodyText="$(cat "$Email_NoSchedule" | sed "s;EmailTextNodeLink;${EmailTextNodeLink};; s/CLIENT/$CLIENT/; s/EMAILFOOTER/$EMAILFOOTER/")"
-            ContactEmail='<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20schedule%20associated&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'$EmailIcon' '
+            ContactEmail=$IconEmail'<a href="mailto:'$EMAIL'?&subject=Backup%20error:%20no%20schedule%20associated&body='${EmailBodyText// /%20}'">'$CONTACT'</a>'
             TableCell_3='<td width="35%">'$ContactEmail'</td>'
             TableCell_4='<td width="30%">'$ClientOS'</td>'
             echo "             <tr>${TableCell_1}${TableCell_2}${TableCell_3}${TableCell_4}</tr>" >> "$ErrorFileHTML"
