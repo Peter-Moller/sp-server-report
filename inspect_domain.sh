@@ -15,6 +15,7 @@ fi
 
 
 # Some basic stuff
+export LC_ALL=en_US.UTF-8
 Today="$(date +%F)"                                                       # Ex: Today=2011-11-11
 NowEpoch=$(date +%s)                                                      # Ex: NowEpoch=1662627432
 Now="$(date +%H:%M)"                                                      # Ex: Now=15:40
@@ -65,10 +66,10 @@ else
     source "$ScriptDirName"/tsm_secrets.env
 fi
 # Fields in this file:
-# ID:              Spectrum Protect user that will gather all data
+# ID:              Storage Protect user that will gather all data
 # PASSWORD:        Password for this user
 # RECIPIENT:       Who should recieve the report
-# OC_SERVER:       Address of the Spectrum Protect Operations Server (including port, if applicable)
+# OC_SERVER:       Address of the Storage Protect Operations Server (including port, if applicable)
 # SCP:             Should the report be transferred using 'scp' (true/false)
 # SCP_HOST:        If so, to which host
 # SCP_DIR:         What directory should it be placed in (directory must exist!)
@@ -135,7 +136,7 @@ fi
 # Get summary of vital parameters for the server
 server_info() {
     #ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
-    #ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.16
+    #ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.22
     #ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
     #ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
     #EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
@@ -152,13 +153,13 @@ server_info() {
     ServerRELEASE="$(echo "$ServerInfo" | grep "RELEASE:" | awk '{print $NF}')"                                                                                                               # Ex: ServerRELEASE=1
     ServerLEVEL="$(echo "$ServerInfo" | grep -E "^\s*LEVEL:" | awk '{print $NF}')"                                                                                                            # Ex: ServerLEVEL=16
     ServerSUBLEVEL="$(echo "$ServerInfo" | grep "SUBLEVEL:" | awk '{print $NF}')"                                                                                                             # Ex: ServerSUBLEVEL=0
-    ServerVersion="$ServerVERSION.$ServerRELEASE.$ServerLEVEL"                                                                                                                                # Ex: ServerVersion=8.1.16
+    ServerVersion="$ServerVERSION.$ServerRELEASE.$ServerLEVEL"                                                                                                                                # Ex: ServerVersion=8.1.22
     ServerName="$(echo "$ServerInfo" | grep "SERVER_NAME:" | awk '{print $NF}')"                                                                                                              # Ex: ServerName=TSM4
     ActLogLength="$(echo "$ServerInfo" | grep "ACTLOGRETENTION:" | awk '{print $NF}')"                                                                                                        # Ex: ActLogLength=30
     EventLogLength="$(echo "$ServerInfo" | grep "EVENTRETENTION:" | awk '{print $NF}')"                                                                                                       # Ex: EventLogLength=14
     OC_URL="https://${OC_SERVER}/oc/gui#clients/detail?server=${ServerName}\&resource=BACKUPNODE\&vmOwner=%20\&target=%20\&type=1\&nodeType=1\&ossm=0\&nav=overview"
-    SP_WhatsNewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=servers-whats-new"
-    SP_OverviewURL="https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=concepts-spectrum-protect-overview"
+    SP_WhatsNewURL="https://www.ibm.com/docs/en/storage-protect/$ServerVersion?topic=servers-whats-new"
+    SP_OverviewURL="https://www.ibm.com/docs/en/storage-protect/$ServerVersion?topic=concepts-storage-protect-overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
         #StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
@@ -198,10 +199,10 @@ errors_today_first_part() {
         for ERROR in $ErrorsInTheDailyLog
         do
             ErrorText="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f3)"                                                                                                                         # Ex: ErrorText='Error processing '\''X'\'': file not found'
-            IBM_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f4 | sed "s_SERVERVER_${ServerVersion}_")"                                                                               # Ex: IBM_Error_URL='https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E'
+            IBM_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f4 | sed "s_SERVERVER_${ServerVersion}_")"                                                                               # Ex: IBM_Error_URL='https://www.ibm.com/docs/en/storage-protect/8.1.22?topic=list-anr0010w#ANR2579E'
             CS_Error_URL="$(grep $ERROR "$SP_ErrorFile" | cut -d\| -f5)"                                                                                                                      # Ex: CS_Error_URL='https://fileadmin.cs.lth.se/intern/backup/ANE4081E.html'
             if [ -n "$IBM_Error_URL" ]; then
-                IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                            # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/spectrum-protect/8.1.16?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
+                IBM_Link="<a href=\"$IBM_Error_URL\" $LinkReferer>Link to IBM</a>"                                                                                                            # Ex: IBM_Link='<a href="https://www.ibm.com/docs/en/storage-protect/8.1.22?topic=list-anr0010w#ANR2579E target="_blank" rel="noopener noreferrer">">IBM</a>'
             else
                 IBM_Link=""
             fi
@@ -269,7 +270,7 @@ errors_today_first_part() {
                     LOCATION="local"
                     ErrorLink="$CS_Error_URL"
                 else
-                    LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/spectrum-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
+                    LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/storage-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                     LOCATION="IBM"
                     ErrorLink="$IBM_Error_URL"
                 fi
@@ -631,7 +632,7 @@ error_detection() {
     fi
     if [ -n "$(grep ANR0424W "$ClientFile")" ]; then
         NumErr=$(grep -c ANR0424W "$ClientFile")
-        ErrorMsg+="$NumErr $MulSign <a href=\"https://www.ibm.com/docs/en/spectrum-protect/$ServerVersion?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
+        ErrorMsg+="$NumErr $MulSign <a href=\"https://www.ibm.com/docs/en/storage-protect/$ServerVersion?topic=list-anr0010w#ANR0424W\" target=\"_blank\" rel=\"noopener noreferrer\">ANR0424W</a> (invalid password submitted)<br>"
     fi
     if [ -n "$(grep ANE4042E "$ClientFile")" ]; then
         NumErr=$(grep -c ANE4042E "$ClientFile")
@@ -705,9 +706,9 @@ create_one_client_report() {
     ReportFile="$OutDir/${client,,}.html"                                                                                                                                                     # Ex: ReportFile=/var/tmp/tsm/cs/clients/cs-petermac.html
     chmod 644 "$ReportFile"
     cat "$HTML_Template_one_client_Head"  | sed "s/CLIENT_NAME/$client/g; s/REPORT_DATETIME/$REPORT_DATETIME/; s/REPORT_TODAY/$REPORT_TODAY/" > "$ReportFile"
-    ToolTipText_PolicyDomain='<div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
+    ToolTipText_PolicyDomain='<div class="tooltip"><i>Policy Domain:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=glossary#gloss_P__x2154121">policy domain</a>'${RQ}' is an organizational way to group backup clients that share common backup requirements</span></div>'
     ToolTipText_CloptSet='<div class="tooltip"><i>Cloptset:</i><span class="tooltiptext">A '${LQ}'cloptset'${RQ}' (client option set) is a set of rules, defined on the server, that determines what files and directories are included and <em>excluded</em> from the backup</span></div>'
-    ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
+    ToolTipText_Schedule='<div class="tooltip"><i>Schedule:</i><span class="tooltiptext">A '${LQ}'<a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=glossary#gloss_C__x2210629">schedule</a>'${RQ}' is a time window during which the server and the client, in collaboration and by using chance, determines a time for backup to be performed</span></div>'
     ToolTipText_BackupDelete='<div class="tooltip"><i>Can delete backup:</i><span class="tooltiptext">Says whether or not a client node can delete files from it’s own backup</span></div>'
     ToolTipText_Role='<div class="tooltip"><i>Role:</i><span class="tooltiptext">'${LQ}'ROLE_EFFECTIVE'${RQ}'; Actual role based on the values in the ROLE and ROLE_OVERRIDE fields</span></div>'
     ToolTipText_NumCores='<div class="tooltip"><i>Num cores:</i><span class="tooltiptext">'${LQ}'PROC_TYPE'${RQ}'; Processor type as reported by the client. This value also reflects the number of cores the CPU has</span></div>'
@@ -718,7 +719,7 @@ create_one_client_report() {
     ToolTipText_CPU_client='<div class="tooltip"><i>CPU (client):</i><span class="tooltiptext">Processor as reported by the client. (PROC_VENDOR + PROC_BRAND + PROC_MODEL)</span></div>'
     ToolTipText_CPU_IBM='<div class="tooltip"><i>CPU (IBM):</i><span class="tooltiptext">Processor from the PVU table (VENDOR_D + BRAND_D + MODEL_D)</span></div>'
     ToolTipText_PVU='<div class="tooltip"><i>PVU:</i><span class="tooltiptext">'${LQ}'Processor Value Units'${RQ}'; an IBM-specific measurement that governs financial cost for the backup client (Num cores * Num CPU * Value units)</span></div>'
-    ConflictedText='<em>(A backup </em>has<em> been performed, but a <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=list-anr0010w#ANR2579E" target="_blank" rel="noopener noreferrer">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>'
+    ConflictedText='<em>(A backup </em>has<em> been performed, but a <a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=list-anr0010w#ANR2579E" target="_blank" rel="noopener noreferrer">ANR2579E</a> has occurred,<br>erroneously indicating that no backup has taken place)</em>'
     # Get more detail for macOS:
     if [ "$ClientOS" = "Macintosh" ]; then
         ClientOSLevel="$(echo "$ClientInfo" | grep -Ei "^\s*Client OS Level:" | cut -d: -f2 | sed 's/^\ //')"                                                                                 # Ex: ClientOSLevel='10.16.0'
@@ -745,7 +746,7 @@ create_one_client_report() {
     echo '        <tr><td align="right">'$ToolTipText_Schedule'</td><td align="left">'${Schedule:--unknown-}' ('$ScheduleStart' '${ScheduleDuration,,}')</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Transport Method:</i></td><td align="left">'${TransportMethod:-unknown}'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right">'$ToolTipText_SessionSecurity'</td><td align="left">'${SessionSecurity:-unknown}'</td></tr>' >> $ReportFile
-    echo '        <tr><td align="right"><i>Connected to Server:</i></td><td align="left">'${ServerName:--}' (<a href="'$SP_WikipediaURL'" '$LinkReferer'>Spectrum Protect</a> <a href="'$SP_WhatsNewURL'" '$LinkReferer'>'$ServerVersion'</a>)</td></tr>' >> $ReportFile
+    echo '        <tr><td align="right"><i>Connected to Server:</i></td><td align="left">'${ServerName:--}' (<a href="'$SP_WikipediaURL'" '$LinkReferer'>Storage Protect</a> <a href="'$SP_WhatsNewURL'" '$LinkReferer'>'$ServerVersion'</a>)</td></tr>' >> $ReportFile
     echo '        <tr><td align="right">'$ToolTipText_BackupDelete'</td><td align="left">'${ClientCanDeleteBackup}'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Client version:</i></td><td align="left">'$ClientVersion'</td></tr>' >> $ReportFile
     echo '        <tr><td align="right"><i>Client OS:</i></td><td align="left">'$ClientOS'</td></tr>' >> $ReportFile
@@ -806,6 +807,7 @@ create_one_client_report() {
         #SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\xe2\x80\xaf/,/' | sed 's/\ //;s/,//g' | cut -d\. -f1)"                    # Ex: SpaceOccup=406869
         SpaceOccup="$(echo "$ClientOccupancy" | grep -EA5 "FILESPACE_ID: $fsid" | grep -E "^\s*$OccupiedPhrase:" | cut -d: -f2 | sed 's/^\ //')"                                              # Ex: SpaceOccup=788967.11
         SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=770
+        set -x
         # Detemine if we should present the usage as percent or per mille
         if [ $(printf %.1f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l) | cut -d\. -f1) -gt 10 ]; then 
             SpaceUsage="$(printf %.2f $(echo "$SpaceOccupGB/${StgSizeTB}0" | bc -l)) %"                                                                                                       # Ex: SpaceUsage='3.0 %'
@@ -817,6 +819,7 @@ create_one_client_report() {
             LastBackupDate="20${LastBackupDate:6:2}-${LastBackupDate:0:2}-${LastBackupDate:3:2}"
         fi
         LastBackupNumDays="$(echo "$FSInfo" | grep -E "Days Since Last Backup Completed:" | cut -d: -f2 | awk '{print $1}' | sed 's/[,<]//g')"                                                # Ex: LastBackupNumDays='<1'
+        set +x
         echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">$(printf "%'d" ${NbrFiles:-0})</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td align=\"right\">$SpaceUsage</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
     done
     case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
@@ -926,9 +929,9 @@ errors_today_second_part() {
     echo '    	<div class="flexbox-container">' >> "$ErrorFileHTML"
     echo '			<div id="box-explanations">' >> "$ErrorFileHTML"
     echo '	            <p><strong>Messages, return codes, and error codes:</strong></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANE:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-ane-messages">Client events logged to the server</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANR:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=codes-anr-messages">Server common and platform-specific messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
-    echo '				<p><tt>ANS:</tt> <a href="https://www.ibm.com/docs/en/spectrum-protect/'$ServerVersion'?topic=SSEQVQ_8.1.16/client.msgs/r_client_messages.htm">Client messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANE:</tt> <a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=codes-ane-messages">Client events logged to the server</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANR:</tt> <a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=codes-anr-messages">Server common and platform-specific messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
+    echo '				<p><tt>ANS:</tt> <a href="https://www.ibm.com/docs/en/storage-protect/'$ServerVersion'?topic=SSEQVQ_8.1.22/client.msgs/r_client_messages.htm">Client messages</a> <span class="glyphicon">&#xe164;</span></p>' >> "$ErrorFileHTML"
     echo '		    </div>' >> "$ErrorFileHTML"
     echo '		</div>' >> "$ErrorFileHTML"
     echo '      <p align="right"><em>Report is generated once per day</em></p>'  >> "$ErrorFileHTML"
@@ -988,7 +991,7 @@ fi
 echo  >> $ReportFileHTML
 
 REPORT_H1_HEADER="Backup report for “${DOMAIN%; }”"
-SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Spectrum Protect</a> version <a href="'$SP_WhatsNewURL' '$LinkReferer'">'$ServerVersion'</a>'
+SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Storage Protect</a> version <a href="'$SP_WhatsNewURL' '$LinkReferer'">'$ServerVersion'</a>'
 REPORT_HEAD="Backup report for ${Explanation% & } on server “${ServerName}” ($SERVER_STRING) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s/REPORT_TODAY/$REPORT_TODAY/; s/REPORT_DATETIME/$REPORT_DATETIME/; s|REPORT_HEAD|$REPORT_HEAD|; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
