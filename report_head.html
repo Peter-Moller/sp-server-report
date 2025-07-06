@@ -67,6 +67,14 @@ code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radiu
     background-color: #9c6114;
     color: white
 }
+#jobe th.sorted-asc,
+#jobe th.sorted-desc {
+    background-color: #0000DD; /* Light blue background */
+    /*color: #003366;            /* Dark blue text */
+}
+.sort-arrow {
+  color: #F9A510;
+}
 #searchbar {
     margin-left: 40px;
     padding: 5px;
@@ -149,81 +157,73 @@ input[type=text]:focus {
 .glyphicon-new-window:before { content: "\e164" }
 </style>
 <script type="text/javascript">
-	function sortTable(n) {
-    var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-    table = document.getElementById("jobe");
-    switching = true;
-    // Set the sorting direction to ascending:
-    dir = "asc";
-    /* Make a loop that will continue until no switching has been done: */
+function sortTable(n, restoreDir = null) {
+    const table = document.getElementById("jobe");
+    const headers = table.getElementsByTagName("TH");
+    let switching = true;
+    let dir = restoreDir || "asc";
+    let switchcount = 0;
+
+    // Clear previous sort indicators and styles
+    for (let j = 0; j < headers.length; j++) {
+        headers[j].classList.remove("sorted-asc", "sorted-desc");
+        headers[j].innerHTML = headers[j].innerHTML.replace(/[▲▼]/g, '');
+    }
+
     while (switching) {
-        // Start by saying: no switching is done:
         switching = false;
-        rows = table.rows;
-        /* Loop through all table rows (except the first, which contains table headers): */
-        for (i = 1; i < (rows.length - 1); i++) {
-            // Start by saying there should be no switching:
-            shouldSwitch = false;
-            /* Get the two elements you want to compare, one from current row and one from the next: */
-            x = rows[i].getElementsByTagName("TD")[n];
-            y = rows[i + 1].getElementsByTagName("TD")[n];
-            /* Check if the two rows should switch place, based on the direction, asc or desc: */
-            shouldSwitch = compare(x.innerHTML, y.innerHTML, dir == "asc");
+        const rows = table.rows;
+
+        for (let i = 1; i < (rows.length - 1); i++) {
+            let shouldSwitch = false;
+            const x = rows[i].getElementsByTagName("TD")[n];
+            const y = rows[i + 1].getElementsByTagName("TD")[n];
+            shouldSwitch = compare(x.textContent || x.innerText, y.textContent || y.innerText, dir === "asc");
             if (shouldSwitch) {
-              break;
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+                break;
             }
         }
-        if (shouldSwitch) {
-            /* If a switch has been marked, make the switch and mark that a switch has been done: */
-            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+
+        if (!switchcount && dir === "asc" && !restoreDir) {
+            dir = "desc";
             switching = true;
-            // Each time a switch is done, increase this count by 1:
-            switchcount++;
-        } else {
-            /* If no switching has been done AND the direction is "asc", set the direction to "desc" and run the while loop again. */
-            if (switchcount == 0 && dir == "asc") {
-                dir = "desc";
-                switching = true;
-            }
         }
     }
+
+    // Add sort indicator and style
+    const arrow = dir === "asc" ? "▲" : "▼";
+    headers[n].classList.add(dir === "asc" ? "sorted-asc" : "sorted-desc");
+    headers[n].innerHTML += ` <span class="sort-arrow">${arrow}</span>`;
+
+    // Save sort state
+    localStorage.setItem("sortedColumn", n);
+    localStorage.setItem("sortDirection", dir);
 }
 
 function compare(x, y, asc) {
+    return function(v1, v2) {
+        v1 = v1.replaceAll(',', '');
+        v2 = v2.replaceAll(',', '');
 
-  // This is a transient function used to allow passing different order of args, 
-  // based on the ascending/descending order.
-  return function(v1, v2) {
+        if (v1.includes(' KB') || v1.includes(' MB') || v1.includes(' GB')) {
+            v1 = cleanupBytesColumnForComparison(v1);
+            v2 = cleanupBytesColumnForComparison(v2);
+        }
 
-    // remove thousand separator comma for numeric comparison
-    v1 = v1.replaceAll(',','');
-    v2 = v2.replaceAll(',','');
-
-    // replace known suffixes for numeric comparison
-    if (v1.includes(' KB') || v1.includes(' MB') || v1.includes(' GB')) {
-      v1 = cleanupBytesColumnForComparison(v1);
-      v2 = cleanupBytesColumnForComparison(v2);
-    }
-
-    // sort based on a numeric or localeCompare, based on type...
-    return (v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2)) 
-      ? Number(v1) > Number(v2)
-      : v1.toString().toLowerCase().localeCompare(v2) > 0;
+        return (v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2))
+            ? Number(v1) > Number(v2)
+            : v1.toString().toLowerCase().localeCompare(v2) > 0;
     }(asc ? x : y, asc ? y : x);
-
 }
 
 function cleanupBytesColumnForComparison(value) {
-  if (value.includes(' KB')) {
-    return Number(value.substring(0, value.length - 3));
-  }
-  if (value.includes(' MB')) {
-    return Number(value.substring(0, value.length - 3)) * 1000;
-  }
-  if (value.includes(' GB')) {
-    return Number(value.substring(0, value.length - 3)) * 1000000;
-  }
-  return value;
+    if (value.includes(' KB')) return Number(value.slice(0, -3));
+    if (value.includes(' MB')) return Number(value.slice(0, -3)) * 1000;
+    if (value.includes(' GB')) return Number(value.slice(0, -3)) * 1000000;
+    return value;
 }
 
 function search_client() {
