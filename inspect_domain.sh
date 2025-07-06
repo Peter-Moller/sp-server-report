@@ -58,7 +58,6 @@ else
 fi
 ScriptFullName="${ScriptDirName}/${ScriptName}"                    # ScriptFullName=/home/cs-pmo/tsm-server-report/inspect_all_clients.sh
 
-
 # Get the secret password, either from the users home-directory or the script-dir
 if [ -f ~/.tsm_secrets.env ]; then
     source ~/.tsm_secrets.env
@@ -135,11 +134,6 @@ fi
 
 # Get summary of vital parameters for the server
 server_info() {
-    #ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=LISt "query status")"
-    #ServerVersion="$(echo "$ServerInfo" | grep -E "^\s*Server Version\s" | grep -Eo "[0-9]*" | tr '\n' '.' | cut -d\. -f1-3)"                                                                 # Ex: ServerVersion=8.1.22
-    #ServerName="$(echo "$ServerInfo" | grep "Server Name:" | cut -d: -f2 | sed 's/^ //')"                                                                                                     # Ex: ServerName='TSM4'
-    #ActLogLength="$(echo "$ServerInfo" | grep "Activity Log Retention:" | cut -d: -f2 | awk '{print $1}')"                                                                                    # Ex: ActLogLength=30
-    #EventLogLength="$(echo "$ServerInfo" | grep "Event Record Retention Period:" | cut -d: -f2 | awk '{print $1}')"                                                                           # Ex: EventLogLength=14
     ServerInfo="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LIST "SELECT SERVER_NAME,ACTLOGRETENTION,EVENTRETENTION,VERSION,RELEASE,LEVEL,SUBLEVEL FROM STATUS")"
     # Ex: ServerInfo='
     #     SERVER_NAME: TSM4
@@ -162,10 +156,7 @@ server_info() {
     SP_OverviewURL="https://www.ibm.com/docs/en/storage-protect/$ServerVersion?topic=concepts-storage-protect-overview"
     # If we have a storage pool, get the data for usage
     if [ -n "$STORAGE_POOL" ]; then
-        #StgSizeGB="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Estimated Capacity:" | awk '{print $3}' | sed 's/\xe2\x80\xaf/,/' | sed 's/,//g')"                     # Ex: StgSizeGB=276035
-        #StgSizeTB="$(echo "scale=0; $StgSizeGB / 1024" | bc -l)"                                                                                                                              # Ex: StgSizeTB=269
         StgSizeTB="$(echo "scale=0; $(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=LISt "SELECT EST_CAPACITY_MB FROM STGPOOLS WHERE STGPOOL_NAME='$STORAGE_POOL'" | awk '{print $NF}') / 1048576" | bc -l)"    # Ex: StgSizeTB=269
-        #StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DISPLaymode=list "q stgpool $STORAGE_POOL" | grep "Pct Util:" | awk '{print $NF}' )"                                             # Ex: StgUsage=2.9
         StgUsage="$(dsmadmc -id="$ID" -password="$PASSWORD" -DATAONLY=YES -DISPLaymode=list "SELECT PCT_UTILIZED FROM STGPOOLS WHERE STGPOOL_NAME='$STORAGE_POOL'" | grep "PCT_UTILIZED:" | awk '{print $NF}' )"                     # Ex: StgUsage=4.5
         StorageText="($StgSizeTB TB, ${StgUsage}% used)"                                                                                                                                      # Ex: StorageText='(276 TB, 2.9% used)'
     fi
@@ -258,7 +249,6 @@ errors_today_first_part() {
                 if [ "$NodeOS" = "macOS" ]; then
                     NodeOS="macOS $(echo "$ClientInfoForError" | grep "CLIENT_OS_LEVEL:" | awk '{print $NF}')"                                                                                # Ex: NodeOS='macOS 10.16.0'
                 fi
-                # Ex: ClientOS='macOS' / 'Ubuntu 20.04.4 LTS' / 'Windows 10 Education' / 'Fedora release 36' / 'Debian GNU/Linux 10' / 'CentOS Linux 7.9.2009'
 
                 # Creating the email
                 EmailLinkText="Here is a web page that descripes the error in more detail:%0A"
@@ -266,11 +256,13 @@ errors_today_first_part() {
                 EmailNoLinkText="We do not have a deeper description of this error."  #### NOT USED!!
                 # Get a link for the error in question:
                 if [ -n "$CS_Error_URL" ]; then
-                    LinkDetailsText="%0A${EmailLinkText}${CS_Error_URL}%0A%0A"                                                                                                                # Ex: LinkDetailsText='Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0A'
+                    LinkDetailsText="%0A${EmailLinkText}${CS_Error_URL}%0A%0A"
+                    # Ex: LinkDetailsText='Here is a web page that descripes the error in more detail: https://fileadmin.cs.lth.se/intern/backup/ANE4007E.html%0A%0A'
                     LOCATION="local"
                     ErrorLink="$CS_Error_URL"
                 else
-                    LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"                                                                                                            # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/storage-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
+                    LinkDetailsText="%0A${EmailLinkTextIBM}${IBM_Error_URL}%0A%0A"
+                    # Ex: LinkDetailsText='Here is a web page at IBM that descripes the error in more detail: https://www.ibm.com/docs/en/storage-protect/SERVERVER?topic=list-ane4000e#ANE4005E%0A%0A'
                     LOCATION="IBM"
                     ErrorLink="$IBM_Error_URL"
                 fi
@@ -807,7 +799,6 @@ create_one_client_report() {
         #SpaceOccup="$(echo "$OccupInfo" | grep -E "Space Occupied" | cut -d: -f2 | grep -v "-" | tail -1 | sed 's/\xe2\x80\xaf/,/' | sed 's/\ //;s/,//g' | cut -d\. -f1)"                    # Ex: SpaceOccup=406869
         SpaceOccup="$(echo "$ClientOccupancy" | grep -EA5 "FILESPACE_ID: $fsid" | grep -E "^\s*$OccupiedPhrase:" | cut -d: -f2 | sed 's/^\ //')"                                              # Ex: SpaceOccup=788967.11
         SpaceOccupGB=$(echo "scale=0; ( $SpaceOccup ) / 1024" | bc | cut -d. -f1)                                                                                                             # Ex: SpaceOccupGB=770
-        set -x
         # Detemine if we should present the usage as percent or per mille
         if [ $(printf %.1f $(echo "$SpaceOccupGB/$StgSizeTB" | bc -l) | cut -d\. -f1) -gt 10 ]; then 
             SpaceUsage="$(printf %.2f $(echo "$SpaceOccupGB/${StgSizeTB}0" | bc -l)) %"                                                                                                       # Ex: SpaceUsage='3.0 %'
@@ -819,7 +810,6 @@ create_one_client_report() {
             LastBackupDate="20${LastBackupDate:6:2}-${LastBackupDate:0:2}-${LastBackupDate:3:2}"
         fi
         LastBackupNumDays="$(echo "$FSInfo" | grep -E "Days Since Last Backup Completed:" | cut -d: -f2 | awk '{print $1}' | sed 's/[,<]//g')"                                                # Ex: LastBackupNumDays='<1'
-        set +x
         echo "        <tr><td align=\"left\"><code>${FSName:-no name}</code></td><td align=\"right\"><code>$fsid</code></td><td><code>${FSType:--??-}</code></td><td align=\"right\">$(printf "%'d" ${NbrFiles:-0})</td><td align=\"right\">$(printf "%'d" ${SpaceOccupGB:-0})</td><td align=\"right\">$SpaceUsage</td><td>${LastBackupDate}</td><td align=\"right\">${LastBackupNumDays:-0}</td></tr>" >> $ReportFile
     done
     case "$(echo "$ClientOS" | awk '{print $1}' | tr [:upper:] [:lower:])" in
@@ -1054,11 +1044,13 @@ get_latest_client_versions
 #cat "$HTML_Template_End" | sed "s/REPORT_GENERATION_TIME/$REPORT_GENERATION_TIME/; s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 cat "$HTML_Template_End" | sed "s/LINUXX86VER/$LatestLinuxX86ClientVer/; s/LINUXX86DEBVER/$LatestLinuxX86_DEBClientVer/; s/MACOSVER/$LatestMacClientVer/; s/WINDOWSVER/$LatestWindowsClientVer/; s/STORAGE/$StorageText/; s|FOOTER_ROW|$FOOTER_ROW|" >> $ReportFileHTML
 # Send an email report (but only if there is a $RECIPIENT
+set -x
 if [ -n "$RECIPIENT" ]; then
     # Used to be 'mailx' but that doesn't work anymore for some reason. So, using 'sendmail'
     #mailx -s "Backuprapport for ${DOMAIN%; }" "$RECIPIENT" < "$ReportFile"
     cat "$ReportFileHTML" | /sbin/sendmail -t
 fi
+set +x
 
 # Copy result if SCP=true
 if $SCP; then
