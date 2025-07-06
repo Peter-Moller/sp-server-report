@@ -50,7 +50,7 @@ code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radiu
     color: white;
     padding: 4px;
     text-align: center;
-    background-color: #000080;
+    background-color: #22458a;
     cursor: pointer;
     position: sticky;
 	top: 0;
@@ -69,8 +69,8 @@ code { padding: 1px 2px; color: #875e29; background-color: #d9ebdb; border-radiu
 }
 #jobe th.sorted-asc,
 #jobe th.sorted-desc {
-    background-color: #0000DD; /* Light blue background */
-    /*color: #003366;            /* Dark blue text */
+    background-color: #2C58B1; /* Light blue background */
+    color: #00F0FC;            /* Dark blue text */
 }
 .sort-arrow {
   color: #F9A510;
@@ -225,6 +225,14 @@ function cleanupBytesColumnForComparison(value) {
     if (value.includes(' GB')) return Number(value.slice(0, -3)) * 1000000;
     return value;
 }
+
+window.addEventListener("load", () => {
+    const col = localStorage.getItem("sortedColumn");
+    const dir = localStorage.getItem("sortDirection");
+    if (col !== null && dir !== null) {
+        sortTable(parseInt(col), dir);
+    }
+});
 
 function search_client() {
     let input = document.getElementById('searchbar').value
