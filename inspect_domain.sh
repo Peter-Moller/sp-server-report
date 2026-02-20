@@ -985,7 +985,6 @@ SERVER_STRING='running <a href="'$SP_OverviewURL' '$LinkReferer'">Storage Protec
 REPORT_HEAD="Backup report for ${Explanation% & } on server “${ServerName}” ($SERVER_STRING) "
 cat "$HTML_Template_Head" | sed "s/REPORT_H1_HEADER/$REPORT_H1_HEADER/; s/REPORT_TODAY/$REPORT_TODAY/; s/REPORT_DATETIME/$REPORT_DATETIME/; s|REPORT_HEAD|$REPORT_HEAD|; s/DOMAIN/$DOMAIN/g" >> $ReportFileHTML
 
-
 # Loop through the list of clients
 for client in $CLIENTS
 do
@@ -1023,7 +1022,6 @@ do
 
     rm $ClientFile
 done
-
 
 # Calculate elapsed time
 Then=$(date +%s)
